@@ -41,7 +41,6 @@ function Scene() {
       ...prevSubmitState,
       [key]: submitState,
     }));
-    // console.log(submissions)
   };
 
   return (

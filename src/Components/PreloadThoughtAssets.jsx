@@ -27,10 +27,6 @@ const MATCAPS = [
 
 const ENVCUBE = ["px.png", "nx.png", "py.png", "ny.png", "pz.png", "nz.png"];
 
-/**
- * Registers network + parse work for dilemma assets before the player reaches a thought.
- * Safe to call every render; drei dedupes preloads.
- */
 export default function PreloadThoughtAssets() {
   GLB.forEach((url) => {
     useGLTF.preload(url);

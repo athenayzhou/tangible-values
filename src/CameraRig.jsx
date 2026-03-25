@@ -14,11 +14,8 @@ import { CameraRigContext } from "./context/CameraRigContext";
 
 const lookScratch = new Vector3();
 
-/** Smooth raw physics position into a stable follow anchor (reduces micro-jitter). */
 const SPHERE_SMOOTH = 7;
-/** Camera chases the smoothed anchor */
 const FOLLOW_SMOOTH = 12;
-/** Slightly snappier when switching interaction → instruction (less “sticky” feel). */
 const MODE_TRANSITION_SMOOTH = 14;
 
 const MAX_DELTA = 1 / 30;

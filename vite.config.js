@@ -16,8 +16,13 @@ export default defineConfig({
   plugins: [react(), glsl()],
   publicDir: "public",
   base: normalizeBase(process.env.VITE_BASE_PATH),
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   build: {
     outDir: "docs",
+    // Rapier WASM is ~2.2 MB minified; warning is informational only.
+    chunkSizeWarningLimit: 3000,
     rollupOptions: {
       input: {
         main: "index.html",
@@ -26,8 +31,17 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes("node_modules/three")) return "three";
           if (id.includes("@react-three/rapier")) return "rapier";
-          if (id.includes("@react-three/drei")) return "drei";
-          if (id.includes("@react-three/fiber")) return "fiber";
+          // One chunk with React + fiber + drei avoids deploy errors from fiber loading
+          // without React, and shrinks `main` so the >500 kB warning is less noisy.
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/scheduler/")
+          ) {
+            return "react-vendor";
+          }
+          if (id.includes("@react-three/fiber")) return "react-vendor";
+          if (id.includes("@react-three/drei")) return "react-vendor";
         },
       },
     },

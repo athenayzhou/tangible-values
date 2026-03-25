@@ -20,7 +20,6 @@ const MAX_SPEED = 100;
 const frontVector = new Vector3();
 const sideVector = new Vector3();
 const direction = new Vector3();
-/** Horizontal velocity smoothing (frame-rate independent) */
 const MOVE_SMOOTH = 12;
 
 export default function Person({ position, submissions }) {

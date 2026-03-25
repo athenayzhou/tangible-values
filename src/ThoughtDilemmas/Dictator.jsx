@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Vector3, Plane } from "three";
-import { CuboidCollider } from "@react-three/rapier";
 
 import DragObj from "../Interaction/DragObj";
 import Sensor from "../Interaction/Sensor";

@@ -108,7 +108,6 @@ export default function Thought({
               setInstructionState(true);
               onInstructionStateChange?.(true);
               setDialogueState(false);
-              // Defer Text3D geometry work so camera / physics stay responsive this frame.
               startTransition(() => {
                 setDialogue(updateDialogue);
                 setDialoguePosition(updatePosition);
