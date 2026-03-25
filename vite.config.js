@@ -21,7 +21,6 @@ export default defineConfig({
   },
   build: {
     outDir: "docs",
-    // Rapier WASM is ~2.2 MB minified; warning is informational only.
     chunkSizeWarningLimit: 3000,
     rollupOptions: {
       input: {
@@ -30,9 +29,6 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes("node_modules/three")) return "three";
-          if (id.includes("@react-three/rapier")) return "rapier";
-          // One chunk with React + fiber + drei avoids deploy errors from fiber loading
-          // without React, and shrinks `main` so the >500 kB warning is less noisy.
           if (
             id.includes("node_modules/react/") ||
             id.includes("node_modules/react-dom/") ||
@@ -42,6 +38,7 @@ export default defineConfig({
           }
           if (id.includes("@react-three/fiber")) return "react-vendor";
           if (id.includes("@react-three/drei")) return "react-vendor";
+          if (id.includes("@react-three/rapier")) return "react-vendor";
         },
       },
     },
