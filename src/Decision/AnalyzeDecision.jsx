@@ -16,8 +16,10 @@ export default function AnalyzeDecision(decisionType) {
           }
         }
       });
-      console.log(`${decisionType} - On average, dictators gave recipients ${mostCommon}$.`);
-    }  else {
+      console.log(
+        `${decisionType} - On average, dictators gave recipients ${mostCommon}$.`,
+      );
+    } else {
       console.log(`No entries for ${decisionType} in the database.`);
     }
   };
@@ -27,7 +29,10 @@ export default function AnalyzeDecision(decisionType) {
       let count1 = 0;
       let count5 = 0;
       entries.forEach((entry) => {
-        if (entry.decision === decisionType && (entry.value === 1 || entry.value === 5)) {
+        if (
+          entry.decision === decisionType &&
+          (entry.value === 1 || entry.value === 5)
+        ) {
           if (entry.value === 1) {
             count1 += 1;
           } else {
@@ -36,9 +41,11 @@ export default function AnalyzeDecision(decisionType) {
         }
       });
       const totalResponses = count1 + count5;
-      const percentage1 = Math.round((count1 / totalResponses) * 100)
-      const percentage5 = Math.round((count5 / totalResponses) * 100)
-      console.log(`${decisionType} - so far, ${percentage1}% of people claimed $1, while ${percentage5}% of people claimed $5.`);
+      const percentage1 = Math.round((count1 / totalResponses) * 100);
+      const percentage5 = Math.round((count5 / totalResponses) * 100);
+      console.log(
+        `${decisionType} - so far, ${percentage1}% of people claimed $1, while ${percentage5}% of people claimed $5.`,
+      );
     } else {
       console.log(`No entries for ${decisionType} in the database.`);
     }
@@ -49,7 +56,10 @@ export default function AnalyzeDecision(decisionType) {
       let exchange = 0;
       let keep = 0;
       entries.forEach((entry) => {
-        if (entry.decision === decisionType && (entry.value === true || entry.value === false)) {
+        if (
+          entry.decision === decisionType &&
+          (entry.value === true || entry.value === false)
+        ) {
           if (entry.value === true) {
             exchange += 1;
           } else {
@@ -58,9 +68,11 @@ export default function AnalyzeDecision(decisionType) {
         }
       });
       const totalResponses = exchange + keep;
-      const percentageExchange = Math.round((exchange / totalResponses) * 100)
-      const percentageKeep = Math.round((keep / totalResponses) * 100)
-      console.log(`${decisionType} - so far, ${percentageExchange}% of people chose to trade, while ${percentageKeep}% of people chose to keep.`);
+      const percentageExchange = Math.round((exchange / totalResponses) * 100);
+      const percentageKeep = Math.round((keep / totalResponses) * 100);
+      console.log(
+        `${decisionType} - so far, ${percentageExchange}% of people chose to trade, while ${percentageKeep}% of people chose to keep.`,
+      );
     } else {
       console.log(`No entries for ${decisionType} in the database.`);
     }
@@ -83,20 +95,22 @@ export default function AnalyzeDecision(decisionType) {
           }
         }
       });
-      console.log(`${decisionType} - On average, people sent ${mostCommon}$ to the other person.`);
-    }  else {
+      console.log(
+        `${decisionType} - On average, people sent ${mostCommon}$ to the other person.`,
+      );
+    } else {
       console.log(`No entries for ${decisionType} in the database.`);
     }
   };
 
-  const dbName = 'decisionDatabase';
-  const objectStoreName = 'decisions';
+  const dbName = "decisionDatabase";
+  const objectStoreName = "decisions";
 
   const request = indexedDB.open(dbName);
 
   request.onsuccess = (event) => {
     const db = event.target.result;
-    const transaction = db.transaction(objectStoreName, 'readonly');
+    const transaction = db.transaction(objectStoreName, "readonly");
     const objectStore = transaction.objectStore(objectStoreName);
 
     const getAllValuesRequest = objectStore.getAll();
@@ -105,16 +119,16 @@ export default function AnalyzeDecision(decisionType) {
       const entries = event.target.result;
 
       switch (decisionType) {
-        case 'dictator':
+        case "dictator":
           analyzeDictator(entries);
           break;
-        case 'volunteer':
+        case "volunteer":
           analyzeVolunteer(entries);
           break;
-        case 'exchange':
+        case "exchange":
           analyzeExchange(entries);
           break;
-        case 'trust':
+        case "trust":
           analyzeTrust(entries);
           break;
         default:
@@ -127,11 +141,11 @@ export default function AnalyzeDecision(decisionType) {
     };
 
     transaction.onerror = (error) => {
-      console.error('Error reading from IndexedDB:', error);
+      console.error("Error reading from IndexedDB:", error);
     };
   };
 
   request.onerror = (event) => {
-    console.error('Error opening IndexedDB:', event.target.error);
+    console.error("Error opening IndexedDB:", event.target.error);
   };
 }

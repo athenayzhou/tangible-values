@@ -2,6 +2,16 @@
 
 **Keywords:** Values, Experimental Games, Digital/3D, Psychology, Reflection
 
+## Development
+
+- **Node:** 18.x (`engines` in `package.json`)
+- **Install:** `npm install`
+- **Dev server:** `npm run dev` (port 3333). Static assets live in `public/` (`models/`, `matcaps/`, `envmap/`) and are served under the same base path as production so dev and deploy behave the same.
+- **Production build:** `npm run build` writes to `docs/` (configured for GitHub Pages).
+- **Quality:** `npm run lint`, `npm test`, `npm run format:check` (also run in CI).
+
+**Base URL:** Vite sets `import.meta.env.BASE_URL` from the `base` option in `vite.config.js`. The app resolves public files with `assetUrl()` in `src/lib/assetUrl.js`. To build for a different path (e.g. site root), set `VITE_BASE_PATH` when building, for example `VITE_BASE_PATH=/ npm run build`.
+
 This project is an interactive website with 3D elements that showcase 4 thought experiments and allow for people to act upon the decision presented in each thought experiment prompt.
 
 Traveling past the introductory foyer, you will come across an onboarding experience demonstrated through the Dictator Game. Upon completion, I invite you to freely navigate to areas presenting the Volunteer Dilemma, Exchange Game, and Trust Game. In each area, a floating diamond will be your point of contact, revealing the area’s respective thought experiment prompt and relaying instructions on completing the corresponding interactive component.
