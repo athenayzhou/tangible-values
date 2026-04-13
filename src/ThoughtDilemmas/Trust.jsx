@@ -2,13 +2,12 @@ import React, { useState, useEffect } from "react";
 import { CuboidCollider } from "@react-three/rapier";
 import { Vector3, Plane } from "three";
 
-import DragObj from "../Interaction/DragObj";
-import Text from "../Text/Text";
-import Sensor from "../Interaction/Sensor";
-import Submit from "../Decision/Submit";
-import Reset from "../Decision/Reset";
-import Coin from "../Interaction/Coin";
-import Path from "../Components/Path";
+import DragObj from "../Components/Interaction/DragObj";
+import Text from "../Components/Text/Text";
+import Sensor from "../Components/Interaction/Sensor";
+import Submit from "../Components/Decision/Submit";
+import Coin from "../Components/Interaction/Coin";
+import Path from "../Components/UI/Path";
 
 function SensorMult({ option, position, handleSensedChange, i, resetSensor }) {
   return (
@@ -259,7 +258,6 @@ export default function Trust({ position, sendSubmit }) {
   const [sendCoinsCalled, setSendCoinsCalled] = useState(false);
   const [resetSensor, setResetSensor] = useState(false);
 
-  const [resetRefractory, setResetRefractory] = useState(false);
   const [submitRefractory, setSubmitRefractory] = useState(false);
   const [pathState, setPathState] = useState(false);
 
@@ -423,47 +421,9 @@ export default function Trust({ position, sendSubmit }) {
       reconcile();
       setResetSensor(false);
 
-      setResetRefractory(true);
       setSubmitRefractory(true);
     }
   }, [confed]);
-
-  const handleReset = () => {
-    setPathState(false);
-
-    setConfed(null);
-    setConfedState(false);
-    setMultiply(false);
-
-    setReactionState(false);
-
-    setInitialCoins([]);
-    setRenderCoins([]);
-    setTotalCoins([]);
-
-    setSensedCoinState((prevSensedCoinState) => {
-      const newSensedCoinState = {};
-      for (const key in prevSensedCoinState) {
-        newSensedCoinState[key] = true;
-      }
-      return newSensedCoinState;
-    });
-
-    setConfedSensors((prevSensors) => {
-      const resetSensors = {};
-      Object.keys(prevSensors).forEach((index) => {
-        resetSensors[index] = {
-          count: 0,
-          sensorPosition: prevSensors[index].sensorPosition,
-          num: 0,
-        };
-      });
-      return resetSensors;
-    });
-    setResetSensor(true);
-
-    setSubmitRefractory(false);
-  };
 
   return (
     <>
@@ -500,7 +460,6 @@ export default function Trust({ position, sendSubmit }) {
         state={false}
         scale={3}
       />
-      {/*reactionState*/}
 
       <Submit
         position={[position[0] + 100, 0, position[2] + 120]}
@@ -514,7 +473,6 @@ export default function Trust({ position, sendSubmit }) {
         errorPosition={[position[0] + 30, 1, position[2] - 5]}
         sendSubmit={sendSubmit}
       />
-      {/* <Reset position={[position[0], 0, position[2]-100]} onReset={handleReset} refractory={resetRefractory}/> */}
 
       <SensorMult
         option="confed"

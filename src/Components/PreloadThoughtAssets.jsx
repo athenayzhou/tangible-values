@@ -4,7 +4,6 @@ import {
   useCubeTexture,
   useFont,
 } from "@react-three/drei";
-
 import nunito from "../assets/fonts/Nunito_SemiBold_Regular.json";
 import { assetUrl } from "../lib/assetUrl";
 

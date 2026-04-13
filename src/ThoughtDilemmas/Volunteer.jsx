@@ -3,15 +3,14 @@ import { RigidBody, CuboidCollider } from "@react-three/rapier";
 import { Vector3, Plane } from "three";
 import { useTexture, useCubeTexture } from "@react-three/drei";
 
-import Text from "../Text/Text";
+import Text from "../Components/Text/Text";
 import { assetUrl } from "../lib/assetUrl";
-import Sensor from "../Interaction/Sensor";
-import Submit from "../Decision/Submit";
-import Reset from "../Decision/Reset";
-import Coin from "../Interaction/Coin";
-import Eraser from "../Interaction/Eraser";
-import Paper from "../Interaction/Paper";
-import Path from "../Components/Path";
+import Sensor from "../Components/Interaction/Sensor";
+import Submit from "../Components/Decision/Submit";
+import Coin from "../Components/Interaction/Coin";
+import Eraser from "../Components/Interaction/Eraser";
+import Paper from "../Components/Interaction/Paper";
+import Path from "../Components/UI/Path";
 
 export default function Volunteer({ position, sendSubmit }) {
   const matcap = useTexture(
@@ -21,9 +20,6 @@ export default function Volunteer({ position, sendSubmit }) {
     ["px.png", "nx.png", "py.png", "ny.png", "pz.png", "nz.png"],
     { path: assetUrl("envmap/") },
   );
-
-  const floorPlane = new Plane(new Vector3(0, 1, 0), 0);
-  const [dragState, setDragState] = useState(false);
 
   const [oneSensors, setOneSensors] = useState({});
   const [fiveSensors, setFiveSensors] = useState({});
@@ -42,7 +38,6 @@ export default function Volunteer({ position, sendSubmit }) {
     position[2] + 45,
   ]);
   const [resetSensor, setResetSensor] = useState(false);
-  const [resetRefractory, setResetRefractory] = useState(false);
   const [submitRefractory, setSubmitRefractory] = useState(false);
   const [pathState, setPathState] = useState(false);
 
@@ -113,9 +108,6 @@ export default function Volunteer({ position, sendSubmit }) {
       }, 3500);
     }
 
-    setTimeout(() => {
-      setResetRefractory(false);
-    }, 6000);
   };
 
   const renderCoins = (amount, position) => {
@@ -135,21 +127,9 @@ export default function Volunteer({ position, sendSubmit }) {
       reconcile();
       setResetSensor(false);
 
-      setResetRefractory(true);
       setSubmitRefractory(true);
     }
   }, [confed]);
-
-  const handleReset = () => {
-    setConfed([]);
-    setConfedState(false);
-    setFlipState(false);
-    setPayoutState(false);
-    setResetSensor(true);
-    setPathState(false);
-
-    setSubmitRefractory(false);
-  };
 
   return (
     <>
@@ -296,7 +276,6 @@ export default function Volunteer({ position, sendSubmit }) {
         errorPosition={[position[0] + 30, 1, position[2] - 5]}
         sendSubmit={sendSubmit}
       />
-      {/* <Reset position={[position[0], 0, position[2]-100]} onReset={handleReset} refractory = {resetRefractory} /> */}
 
       <Path
         position={[position[0] + 1400, position[1], position[2] + 1100]}

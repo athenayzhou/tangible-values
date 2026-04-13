@@ -9,7 +9,6 @@ import React, {
 import { PerspectiveCamera } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
-
 import { CameraRigContext } from "./context/CameraRigContext";
 
 const lookScratch = new Vector3();
@@ -17,7 +16,6 @@ const lookScratch = new Vector3();
 const SPHERE_SMOOTH = 7;
 const FOLLOW_SMOOTH = 12;
 const MODE_TRANSITION_SMOOTH = 14;
-
 const MAX_DELTA = 1 / 30;
 
 export default function CameraRig({ children }) {

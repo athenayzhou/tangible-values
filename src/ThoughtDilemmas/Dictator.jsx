@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Vector3, Plane } from "three";
 
-import DragObj from "../Interaction/DragObj";
-import Sensor from "../Interaction/Sensor";
-import Text from "../Text/Text";
-import Submit from "../Decision/Submit";
+import DragObj from "../Components/Interaction/DragObj";
+import Sensor from "../Components/Interaction/Sensor";
+import Text from "../Components/Text/Text";
+import Submit from "../Components/Decision/Submit";
 
 function CoinMult({ position, setDragState, floorPlane }) {
   return (
@@ -123,7 +123,7 @@ export default function Dictator({ position, sendSubmit }) {
       />
 
       <Submit
-        position={[0, 0, -370]}
+        position={[position[0], position[1] - 5, position[2] + 100]}
         valid={dictator + reciever === 10}
         decisionType={"dictator"}
         decisionValue={reciever}

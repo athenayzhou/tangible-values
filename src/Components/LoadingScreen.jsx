@@ -7,9 +7,7 @@ import {
   Text3D,
   ContactShadows,
 } from "@react-three/drei";
-
 import nunito from "../assets/fonts/Nunito_SemiBold_Regular.json";
-
 import { assetUrl } from "../lib/assetUrl";
 import octaVert from "../shaders/octaVert.glsl";
 import octaFrag from "../shaders/octaFrag.glsl";

@@ -1,47 +1,73 @@
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useState } from "react";
+import React, { Suspense, useState, useRef, useCallback } from "react";
 import { Stats, KeyboardControls } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
 
 import LoadingScreen from "./Components/LoadingScreen";
-import Ground from "./Components/Ground";
+import Ground from "./Components/UI/Ground";
 import CameraRig from "./CameraRig";
 import Person from "./Person";
 import Thought from "./Thought";
-import Foyer from "./Components/Foyer";
+import Foyer from "./Components/UI/Foyer";
+import Portal from "./Portal";
 
-import {
-  LazyDictator,
-  LazyVolunteer,
-  LazyExchange,
-  LazyTrust,
-} from "./Components/DilemmaLazy";
-import Archways from "./Components/Archways";
-import Directory from "./Components/Directory";
+import Archways from "./Components/UI/Archways";
+import Directory from "./Components/UI/Directory";
 import PreloadThoughtAssets from "./Components/PreloadThoughtAssets";
-import {
-  DICTATOR_PROMPT,
-  VOLUNTEER_PROMPT,
-  EXCHANGE_PROMPT,
-  TRUST_PROMPT,
-} from "./thoughtPrompts";
+import { thoughtConfigs } from "./context/thoughtConfigs";
+import { useAggregate } from "./hooks/useAggregate";
 
 const proximityToThoughts = [true, true, true, true];
 
-function Scene() {
-  const [submissions, setSubmissions] = useState({
-    dictator: false,
-    volunteer: false,
-    exchange: false,
-    trust: false,
-  });
+const THOUGHT_CENTER = [0, 5, -400];
+const PLAYER_SPAWN = [0, 20, -100];
+const EXIT_PORTAL = [0, 12, -660];
+const EXIT_PORTAL_COOLDOWN_MS = 1500;
 
-  const storeSubmissions = (key, submitState) => {
-    setSubmissions((prevSubmitState) => ({
-      ...prevSubmitState,
-      [key]: submitState,
-    }));
-  };
+function Scene() {
+  const {
+    submissions,
+    storeSubmissions,
+    aggregate,
+    aggregateLoading,
+    handlePortalProximity,
+  } = useAggregate();
+
+  const playerRef = useRef(null);
+  const exitPortalUnlockTimeRef = useRef(0);
+  const [mode, setMode] = useState("base");
+  const [activeThoughtId, setActiveThoughtId] = useState(null);
+
+  const handlePortalEnter = useCallback((thoughtId) => {
+    exitPortalUnlockTimeRef.current = performance.now() + EXIT_PORTAL_COOLDOWN_MS;
+    setMode("portaled");
+    setActiveThoughtId(thoughtId);
+    if(playerRef.current){
+      playerRef.current.setTranslation(
+        {
+          x: PLAYER_SPAWN[0],
+          y: PLAYER_SPAWN[1],
+          z: PLAYER_SPAWN[2],
+        },
+        true,
+      );
+      playerRef.current.setLinvel({ x: 0, y: 0, z: 0 });
+    }
+  }, []);
+
+  const handlePortalExit = useCallback(() => {
+    if (performance.now() < exitPortalUnlockTimeRef.current) {
+      return;
+    }
+    setMode("base");
+    setActiveThoughtId(null);
+    if(playerRef.current){
+      playerRef.current.setTranslation({ x: 0, y: 100, z: 150 }, true);
+      playerRef.current.setLinvel({ x: 0, y: 0, z: 0 });
+    }
+  }, []);
+
+  const isPortaled = mode === "portaled";
 
   return (
     <div id="canvas_wrapper">
@@ -63,7 +89,6 @@ function Scene() {
         >
           <color args={["#eeeeee"]} attach="background" />
           <fogExp2 attach="fog" args={["#eeeeee", 0.003]} />
-          {/* <axesHelper args={[10]} /> */}
 
           <ambientLight intensity={1} />
           <directionalLight
@@ -78,6 +103,8 @@ function Scene() {
               <Ground />
 
               <CameraRig>
+                {!isPortaled && (
+                  <>
                 <Foyer position={[20, 0, 70]} />
                 <Archways
                   dictatorPos={[0, 5, -470]}
@@ -85,96 +112,84 @@ function Scene() {
                   exchangePos={[0, 5, -1100]}
                   trustPos={[550, 5, -800]}
                 />
-                <Directory submitted={submissions.dictator} />
-
-                <Person submissions={submissions} />
+                <Directory submitted={submissions.dictator?.submitted || false} />
 
                 {proximityToThoughts[0] && (
                   <Thought
-                    key={"dictatorGame"}
-                    position={[0, 5, -370]}
-                    meshPos={[0, 6, 150]}
-                    startDialogue={"HELLO THERE ! COME CLOSER"}
-                    startPosition={[0, 20, 150]}
-                    updateDialogue={` DRAG THE COINS TO THE MARKED AREA \nACCORDING TO YOUR PROPOSED DIVISION.`}
-                    updatePosition={[-10, 20, 150]}
-                    endDialogue={`TAKE YOUR TIME.`}
-                    endPosition={[15, 20, 150]}
-                    prompt={DICTATOR_PROMPT}
-                    promptPosition={[0, 40, 130]}
+                    key={thoughtConfigs.dictator.key}
+                    position={thoughtConfigs.dictator.basePosition}
+                    meshPos={thoughtConfigs.dictator.meshPos}
+                    startDialogue={thoughtConfigs.dictator.startDialogue}
+                    startPosition={thoughtConfigs.dictator.startPosition}
+                    updateDialogue={thoughtConfigs.dictator.updateDialogue}
+                    updatePosition={thoughtConfigs.dictator.updatePosition}
+                    endDialogue={thoughtConfigs.dictator.endDialogue}
+                    endPosition={thoughtConfigs.dictator.endPosition}
+                    prompt={thoughtConfigs.dictator.prompt}
+                    promptPosition={thoughtConfigs.dictator.promptPosition}
                     submissions={submissions}
                   >
-                    <LazyDictator
-                      key={"dictator"}
-                      position={[0, 5, -470]}
+                    <thoughtConfigs.dictator.dilemmaComponent
+                      position={thoughtConfigs.dictator.dilemmaPosition}
                       sendSubmit={storeSubmissions}
                     />
                   </Thought>
                 )}
 
-                {proximityToThoughts[1] && (
+                </>
+                )}
+
+                <Person submissions={submissions} ref={playerRef} />
+
+                {!isPortaled && (
+                  <>
+                  {["volunteer", "exchange", "trust"].map((id) => {
+                    const cfg = thoughtConfigs[id];
+                    return (
+                      <Portal
+                        key={`portal-${id}`}
+                        id={id}
+                        position={cfg.basePosition}
+                        onEnter={handlePortalEnter}
+                        aggregate={aggregate[id]}
+                        aggregateLoading={!!aggregateLoading[id]}
+                        onProximityChange={handlePortalProximity}
+                      />
+                    );
+                  })}
+                  </>
+                )}
+
+                {isPortaled && activeThoughtId && activeThoughtId !== "dictator" && (
                   <Thought
-                    key={"volunteerDilemma"}
-                    position={[-550, 5, -800]}
-                    startDialogue={"FEELING  RISKY  TODAY ?"}
-                    startPosition={[0, 20, 0]}
-                    updateDialogue={`  COLOR THE OPTION BY WALKING OVER IT.\nIF YOU CHANGE YOUR MIND, USE THE ERASER.`}
-                    updatePosition={[-20, 20, 0]}
-                    endDialogue={`MAY LUCK BE ON YOUR SIDE.`}
-                    endPosition={[0, 20, 0]}
-                    prompt={VOLUNTEER_PROMPT}
+                    key={`portaled-${activeThoughtId}`}
+                    position={THOUGHT_CENTER}
+                    meshPos={thoughtConfigs[activeThoughtId].meshPos}
+                    startDialogue={thoughtConfigs[activeThoughtId].startDialogue}
+                    startPosition={thoughtConfigs[activeThoughtId].startPosition}
+                    updateDialogue={thoughtConfigs[activeThoughtId].updateDialogue}
+                    updatePosition={thoughtConfigs[activeThoughtId].updatePosition}
+                    endDialogue={thoughtConfigs[activeThoughtId].endDialogue}
+                    endPosition={thoughtConfigs[activeThoughtId].endPosition}
+                    prompt={thoughtConfigs[activeThoughtId].prompt}
+                    promptPosition={thoughtConfigs[activeThoughtId].promptPosition}
                     submissions={submissions}
                   >
-                    <LazyVolunteer
-                      key={"volunteer"}
-                      position={[-550, 5, -800]}
-                      sendSubmit={storeSubmissions}
-                    />
+                    {React.createElement(thoughtConfigs[activeThoughtId].dilemmaComponent, {
+                      position: THOUGHT_CENTER,
+                      sendSubmit: storeSubmissions,
+                    })}
                   </Thought>
                 )}
 
-                {proximityToThoughts[2] && (
-                  <Thought
-                    key={"exchangeGame"}
-                    position={[0, 5, -1100]}
-                    startDialogue={"WANNA  MAKE  A  TRADE ?"}
-                    startPosition={[0, 20, 0]}
-                    updateDialogue={`PUSH THE APPLE ONTO THE LEFT AREA TO EXCHANGE \n    OR HIDE IT BEHIND THE LEFT WALL TO KEEP.`}
-                    updatePosition={[-35, 20, 0]}
-                    endDialogue={`ONCE BITTEN, TWICE SHY.`}
-                    endPosition={[0, 20, 0]}
-                    prompt={EXCHANGE_PROMPT}
-                    promptPosition={[0, 40, -20]}
-                    submissions={submissions}
-                  >
-                    <LazyExchange
-                      key={"exchange"}
-                      position={[0, 5, -1100]}
-                      sendSubmit={storeSubmissions}
-                    />
-                  </Thought>
+                {isPortaled && (
+                  <Portal
+                    id="exit"
+                    position={EXIT_PORTAL}
+                    onEnter={handlePortalExit}
+                  />
                 )}
-
-                {proximityToThoughts[3] && (
-                  <Thought
-                    key={"trustGame"}
-                    position={[550, 5, -800]}
-                    startDialogue={"DO  YOU  TRUST  ME ?"}
-                    startPosition={[0, 20, 0]}
-                    updateDialogue={`DRAG THE AMOUNT OF COINS YOU WANT \n    TO SEND ONTO THE MARKED AREAS.`}
-                    updatePosition={[-20, 20, 0]}
-                    endDialogue={`FOOL ME ONCE, SHAME ON YOU. \nFOOL ME TWICE, SHAME ON ME.`}
-                    endPosition={[0, 20, 0]}
-                    prompt={TRUST_PROMPT}
-                    submissions={submissions}
-                  >
-                    <LazyTrust
-                      key={"trust"}
-                      position={[550, 5, -800]}
-                      sendSubmit={storeSubmissions}
-                    />
-                  </Thought>
-                )}
+                
               </CameraRig>
             </Physics>
           </Suspense>

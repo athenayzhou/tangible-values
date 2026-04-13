@@ -1,19 +1,16 @@
 // key control reference: Minecraft by drcmda
 // https://codesandbox.io/p/sandbox/minecraft-vkgi6?file=%2Fsrc%2FPlayer.js%3A24%2C5-24%2C60
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
 import { useKeyboardControls, useCubeTexture } from "@react-three/drei";
-
 import { assetUrl } from "./lib/assetUrl";
 import {
   RigidBody,
   BallCollider,
   useAfterPhysicsStep,
 } from "@react-three/rapier";
-
-import About from "./Components/About";
 import { useCameraRig } from "./context/CameraRigContext";
 
 const MAX_SPEED = 100;
@@ -22,7 +19,9 @@ const sideVector = new Vector3();
 const direction = new Vector3();
 const MOVE_SMOOTH = 12;
 
-export default function Person({ position, submissions }) {
+const Person = forwardRef(({ position, submissions }, ref) => {
+  const personRef = useRef();
+  useImperativeHandle(ref, () => personRef.current);
   const { onPositionChange, onProximity, onThoughtPosition } = useCameraRig();
 
   const texture = useCubeTexture(
@@ -30,16 +29,14 @@ export default function Person({ position, submissions }) {
     { path: assetUrl("envmap/") },
   );
 
-  const ref = useRef();
   const [, get] = useKeyboardControls();
-  const [aboutPosition, setAboutPosition] = useState([0, 0, 0]);
 
   useFrame((_, delta) => {
-    if (!ref.current) return;
+    if (!personRef.current) return;
 
     const d = Math.min(Math.max(delta, 1e-4), 1 / 30);
     const { forward, backward, left, right } = get();
-    const velocity = ref.current.linvel();
+    const velocity = personRef.current.linvel();
 
     frontVector.set(0, 0, Number(backward) - Number(forward));
     sideVector.set(Number(left) - Number(right), 0, 0);
@@ -56,12 +53,12 @@ export default function Person({ position, submissions }) {
     const t = 1 - Math.exp(-MOVE_SMOOTH * d);
     const nx = velocity.x + (targetX - velocity.x) * t;
     const nz = velocity.z + (targetZ - velocity.z) * t;
-    ref.current.setLinvel({ x: nx, y: velocity.y, z: nz });
+    personRef.current.setLinvel({ x: nx, y: velocity.y, z: nz });
   });
 
   useAfterPhysicsStep(() => {
-    if (!ref.current) return;
-    const tr = ref.current.translation();
+    if (!personRef.current) return;
+    const tr = personRef.current.translation();
     onPositionChange({ x: tr.x, y: tr.y, z: tr.z });
   });
 
@@ -73,29 +70,25 @@ export default function Person({ position, submissions }) {
     });
   };
 
-  const [complete, setComplete] = useState(false);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const pos = ref.current.translation();
-    setAboutPosition([pos.x, 0, pos.z - 50]);
-    let timeoutId;
-    if (submissions && Object.keys(submissions).length > 0) {
-      if (Object.values(submissions).every((value) => value === true)) {
-        timeoutId = setTimeout(() => {
-          setComplete(true);
-        }, 10000);
-      }
-    }
-    return () => {
-      if (timeoutId != null) clearTimeout(timeoutId);
-    };
-  }, [submissions]);
+  // const [complete, setComplete] = useState(false);
+  // useEffect(() => {
+  //   let timeoutId;
+  //   if (submissions && Object.keys(submissions).length > 0) {
+  //     if (Object.values(submissions).every((value) => value === true)) {
+  //       timeoutId = setTimeout(() => {
+  //         setComplete(true);
+  //       }, 10000);
+  //     }
+  //   }
+  //   return () => {
+  //     if (timeoutId != null) clearTimeout(timeoutId);
+  //   };
+  // }, [submissions]);
 
   return (
     <>
       <RigidBody
-        ref={ref}
+        ref={personRef}
         mass={20}
         gravityScale={20}
         type="Dynamic"
@@ -133,7 +126,8 @@ export default function Person({ position, submissions }) {
           }}
         />
       </RigidBody>
-      {complete && <About position={aboutPosition} />}
     </>
   );
-}
+});
+
+export default Person;

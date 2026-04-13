@@ -3,12 +3,12 @@ import { RigidBody, CapsuleCollider } from "@react-three/rapier";
 import { useCubeTexture, Float } from "@react-three/drei";
 import { useEffect } from "react";
 
-import Prompt from "./Text/Prompt";
-import Text from "./Text/Text";
+import Prompt from "./Components/Text/Prompt";
+import Text from "./Components/Text/Text";
 import { useCameraRig } from "./context/CameraRigContext";
 import { assetUrl } from "./lib/assetUrl";
 
-export default function Thought({
+function Thought({
   position,
   meshPos,
   startDialogue,
@@ -38,7 +38,7 @@ export default function Thought({
     React.Children.forEach(children, (child) => {
       const childKey = child.key;
       const submissionValue = submissions && submissions[childKey];
-      if (submissionValue === true) {
+      if (submissionValue?.submitted === true) {
         setDialogue(endDialogue);
         setDialoguePosition(endPosition);
       }
@@ -134,3 +134,24 @@ export default function Thought({
     </>
   );
 }
+
+const vec3Eq = (a, b) =>
+  a?.length === 3 &&
+  b?.length === 3 &&
+  a[0] === b[0] &&
+  a[1] === b[1] &&
+  a[2] === b[2];
+
+const MemoizedThought = React.memo(Thought, (prevProps, nextProps) => {
+  return (
+    prevProps.submissions === nextProps.submissions &&
+    prevProps.startDialogue === nextProps.startDialogue &&
+    prevProps.updateDialogue === nextProps.updateDialogue &&
+    prevProps.endDialogue === nextProps.endDialogue &&
+    prevProps.prompt === nextProps.prompt &&
+    vec3Eq(prevProps.position, nextProps.position) &&
+    vec3Eq(prevProps.meshPos, nextProps.meshPos)
+  );
+});
+
+export default MemoizedThought;

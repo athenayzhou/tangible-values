@@ -6,12 +6,11 @@ import { assetUrl } from "../lib/assetUrl";
 import gsap from "gsap";
 import { MeshTransmissionMaterial } from "@react-three/drei";
 
-import Text from "../Text/Text";
-import Sensor from "../Interaction/Sensor";
-import Submit from "../Decision/Submit";
-import Reset from "../Decision/Reset";
-import Wall from "../Interaction/Wall";
-import Path from "../Components/Path";
+import Text from "../Components/Text/Text";
+import Sensor from "../Components/Interaction/Sensor";
+import Submit from "../Components/Decision/Submit";
+import Wall from "../Components/Interaction/Wall";
+import Path from "../Components/UI/Path";
 
 export default function Exchange({ position, sendSubmit }) {
   const { nodes: appleNodes } = useGLTF(assetUrl("models/apple.glb"));
@@ -46,8 +45,6 @@ export default function Exchange({ position, sendSubmit }) {
 
   const [payoutState, setPayoutState] = useState(false);
   const [reaction, setReaction] = useState("null");
-  const [resetPos, setResetPos] = useState(false);
-  const [resetRefractory, setResetRefractory] = useState(false);
   const [submitRefractory, setSubmitRefractory] = useState(false);
   const [pathState, setPathState] = useState(false);
 
@@ -58,35 +55,6 @@ export default function Exchange({ position, sendSubmit }) {
       setExchange(bool);
     }
   };
-
-  useEffect(() => {
-    if (resetPos == true) {
-      const tl = gsap.timeline();
-      tl.to(confedFruit.current.parent.position, {
-        x: position[0] + 50,
-        z: position[2] + 15,
-        duration: 7,
-        ease: "power2.inOut",
-        onUpdate: () => {
-          setConfedFruitPos([...confedFruit.current.parent.position]);
-        },
-      });
-      tl.to(
-        userFruit.current.parent.position,
-        {
-          x: position[0] - 30,
-          z: position[2] + 125,
-          duration: 6,
-          ease: "power2.inOut",
-          onUpdate: () => {
-            setUserFruitPos([...userFruit.current.parent.position]);
-          },
-        },
-        "<",
-      );
-      setResetPos(false);
-    }
-  }, [resetPos]);
 
   useEffect(() => {
     if (payoutState == true) {
@@ -209,7 +177,6 @@ export default function Exchange({ position, sendSubmit }) {
     }, 4000);
 
     setTimeout(() => {
-      setResetRefractory(false);
       setPathState(true);
     }, 10000);
   };
@@ -218,20 +185,9 @@ export default function Exchange({ position, sendSubmit }) {
     // console.log(confed)
     if (confed !== null) {
       reconcile();
-      setResetRefractory(true);
       setSubmitRefractory(true);
     }
   }, [confed]);
-
-  const handleReset = () => {
-    setConfed(null);
-    setConfedState(false);
-    setPayoutState(false);
-    setResetPos(true);
-
-    setPathState(false);
-    setSubmitRefractory(false);
-  };
 
   return (
     <>
@@ -288,7 +244,6 @@ export default function Exchange({ position, sendSubmit }) {
         errorPosition={[position[0] - 53, 1, position[2] + 100]}
         sendSubmit={sendSubmit}
       />
-      {/* <Reset position={[position[0], 0, position[2]-100]} onReset={handleReset} refractory={resetRefractory} /> */}
 
       <Sensor
         type="boolean"
@@ -317,8 +272,8 @@ export default function Exchange({ position, sendSubmit }) {
 
       <RigidBody
         name="fruit"
-        mass={800}
-        gravityScale={800}
+        mass={80}
+        gravityScale={100}
         type="dynamic"
         colliders={false}
         position={userFruitPos}
