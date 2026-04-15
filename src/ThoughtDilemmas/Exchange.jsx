@@ -10,9 +10,9 @@ import Text from "../Components/Text/Text";
 import Sensor from "../Components/Interaction/Sensor";
 import Submit from "../Components/Decision/Submit";
 import Wall from "../Components/Interaction/Wall";
-import Path from "../Components/UI/Path";
+import Path from "../Components/World/Path";
 
-export default function Exchange({ position, sendSubmit }) {
+export default function Exchange({ position, sendSubmit, communityAggregate }) {
   const { nodes: appleNodes } = useGLTF(assetUrl("models/apple.glb"));
   const { nodes: orangeNodes } = useGLTF(assetUrl("models/orange.glb"));
 
@@ -243,6 +243,7 @@ export default function Exchange({ position, sendSubmit }) {
         }}
         errorPosition={[position[0] - 53, 1, position[2] + 100]}
         sendSubmit={sendSubmit}
+        communityAggregate={communityAggregate}
       />
 
       <Sensor

@@ -7,7 +7,7 @@ import Text from "../Components/Text/Text";
 import Sensor from "../Components/Interaction/Sensor";
 import Submit from "../Components/Decision/Submit";
 import Coin from "../Components/Interaction/Coin";
-import Path from "../Components/UI/Path";
+import Path from "../Components/World/Path";
 
 function SensorMult({ option, position, handleSensedChange, i, resetSensor }) {
   return (
@@ -232,7 +232,7 @@ function CoinMult({ position, setDragState, floorPlane, sensedCoinState }) {
   );
 }
 
-export default function Trust({ position, sendSubmit }) {
+export default function Trust({ position, sendSubmit, communityAggregate }) {
   const floorPlane = new Plane(new Vector3(0, 1, 0), 0);
   const [dragState, setDragState] = useState(false);
   const [confedSensors, setConfedSensors] = useState({});
@@ -472,6 +472,7 @@ export default function Trust({ position, sendSubmit }) {
         }}
         errorPosition={[position[0] + 30, 1, position[2] - 5]}
         sendSubmit={sendSubmit}
+        communityAggregate={communityAggregate}
       />
 
       <SensorMult

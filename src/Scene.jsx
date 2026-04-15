@@ -1,21 +1,25 @@
 import { Canvas } from "@react-three/fiber";
-import React, { Suspense, useState, useRef, useCallback } from "react";
+import React, { Suspense, useState, useRef, useCallback, useEffect } from "react";
 import { Stats, KeyboardControls } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
 
 import LoadingScreen from "./Components/LoadingScreen";
-import Ground from "./Components/UI/Ground";
+import Ground from "./Components/World/Ground";
 import CameraRig from "./CameraRig";
 import Person from "./Person";
 import Thought from "./Thought";
-import Foyer from "./Components/UI/Foyer";
+import Foyer from "./Components/World/Foyer";
 import Portal from "./Portal";
 
-import Archways from "./Components/UI/Archways";
-import Directory from "./Components/UI/Directory";
+import Archways from "./Components/World/Archways";
+import Directory from "./Components/World/Directory";
 import PreloadThoughtAssets from "./Components/PreloadThoughtAssets";
+import Hud from "./Components/UI/Hud";
 import { thoughtConfigs } from "./context/thoughtConfigs";
 import { useAggregate } from "./hooks/useAggregate";
+import { useSubmission } from "./hooks/useSubmission";
+import { useGold } from "./hooks/useGold";
+import { useValues } from "./hooks/useValues";
 
 const proximityToThoughts = [true, true, true, true];
 
@@ -26,34 +30,99 @@ const EXIT_PORTAL_COOLDOWN_MS = 1500;
 
 function Scene() {
   const {
-    submissions,
-    storeSubmissions,
     aggregate,
     aggregateLoading,
     handlePortalProximity,
+    refreshAggregate,
   } = useAggregate();
+  const { submissions, storeSubmissions } = useSubmission();
+  const {
+    runSessionId,
+    balance,
+    initSession,
+    startThoughtInstance,
+    settleThought,
+    instancesByThought,
+  } = useGold();
+  const { values, refreshValues } = useValues();
 
   const playerRef = useRef(null);
   const exitPortalUnlockTimeRef = useRef(0);
   const [mode, setMode] = useState("base");
   const [activeThoughtId, setActiveThoughtId] = useState(null);
 
-  const handlePortalEnter = useCallback((thoughtId) => {
-    exitPortalUnlockTimeRef.current = performance.now() + EXIT_PORTAL_COOLDOWN_MS;
-    setMode("portaled");
-    setActiveThoughtId(thoughtId);
-    if(playerRef.current){
-      playerRef.current.setTranslation(
-        {
-          x: PLAYER_SPAWN[0],
-          y: PLAYER_SPAWN[1],
-          z: PLAYER_SPAWN[2],
+  useEffect(() => {
+    void (async () => {
+      const id = await initSession();
+      if(id) await refreshValues(id);
+    })();
+  }, [initSession, refreshValues]);
+
+  const handleSubmit = useCallback(
+    (thoughtId, submitState) => {
+      const instanceId = instancesByThought[thoughtId];
+      void storeSubmissions(thoughtId, submitState, {
+        runSessionId,
+        instanceId,
+        onPersisted: async ({
+          thoughtId: persistedThoughtId,
+          decisionValue,
+          outcomeMeta,
+          payload,
+        }) => {
+          refreshAggregate(persistedThoughtId);
+          await settleThought({
+            thoughtId: persistedThoughtId,
+            decisionValue,
+            outcomeMeta,
+            payload,
+          });
+          const sessionForValues = runSessionId ?? (await initSession());
+          if (sessionForValues) {
+            await refreshValues(sessionForValues);
+          }
         },
-        true,
-      );
-      playerRef.current.setLinvel({ x: 0, y: 0, z: 0 });
-    }
-  }, []);
+      }).catch((err) => console.error("storeSubmissions", thoughtId, err));
+    },
+    [
+      instancesByThought,
+      refreshAggregate,
+      refreshValues,
+      initSession,
+      runSessionId,
+      settleThought,
+      storeSubmissions,
+    ],
+  );
+
+  const handlePortalEnter = useCallback(
+    (thoughtId) => {
+      void (async () => {
+        try {
+          await startThoughtInstance(thoughtId);
+        } catch (err) {
+          console.error("startThoughtInstance", thoughtId, err);
+          return;
+        }
+
+        exitPortalUnlockTimeRef.current = performance.now() + EXIT_PORTAL_COOLDOWN_MS;
+        setMode("portaled");
+        setActiveThoughtId(thoughtId);
+        if (playerRef.current) {
+          playerRef.current.setTranslation(
+            {
+              x: PLAYER_SPAWN[0],
+              y: PLAYER_SPAWN[1],
+              z: PLAYER_SPAWN[2],
+            },
+            true,
+          );
+          playerRef.current.setLinvel({ x: 0, y: 0, z: 0 });
+        }
+      })();
+    },
+    [startThoughtInstance],
+  );
 
   const handlePortalExit = useCallback(() => {
     if (performance.now() < exitPortalUnlockTimeRef.current) {
@@ -61,7 +130,7 @@ function Scene() {
     }
     setMode("base");
     setActiveThoughtId(null);
-    if(playerRef.current){
+    if (playerRef.current) {
       playerRef.current.setTranslation({ x: 0, y: 100, z: 150 }, true);
       playerRef.current.setLinvel({ x: 0, y: 0, z: 0 });
     }
@@ -71,6 +140,7 @@ function Scene() {
 
   return (
     <div id="canvas_wrapper">
+      <Hud balance={balance} values={values} />
       <KeyboardControls
         map={[
           { name: "forward", keys: ["ArrowUp", "w", "W"] },
@@ -105,38 +175,39 @@ function Scene() {
               <CameraRig>
                 {!isPortaled && (
                   <>
-                <Foyer position={[20, 0, 70]} />
-                <Archways
-                  dictatorPos={[0, 5, -470]}
-                  volunteerPos={[-550, 5, -800]}
-                  exchangePos={[0, 5, -1100]}
-                  trustPos={[550, 5, -800]}
-                />
-                <Directory submitted={submissions.dictator?.submitted || false} />
-
-                {proximityToThoughts[0] && (
-                  <Thought
-                    key={thoughtConfigs.dictator.key}
-                    position={thoughtConfigs.dictator.basePosition}
-                    meshPos={thoughtConfigs.dictator.meshPos}
-                    startDialogue={thoughtConfigs.dictator.startDialogue}
-                    startPosition={thoughtConfigs.dictator.startPosition}
-                    updateDialogue={thoughtConfigs.dictator.updateDialogue}
-                    updatePosition={thoughtConfigs.dictator.updatePosition}
-                    endDialogue={thoughtConfigs.dictator.endDialogue}
-                    endPosition={thoughtConfigs.dictator.endPosition}
-                    prompt={thoughtConfigs.dictator.prompt}
-                    promptPosition={thoughtConfigs.dictator.promptPosition}
-                    submissions={submissions}
-                  >
-                    <thoughtConfigs.dictator.dilemmaComponent
-                      position={thoughtConfigs.dictator.dilemmaPosition}
-                      sendSubmit={storeSubmissions}
+                    <Foyer position={[20, 0, 70]} />
+                    <Archways
+                      dictatorPos={[0, 5, -470]}
+                      volunteerPos={[-550, 5, -800]}
+                      exchangePos={[0, 5, -1100]}
+                      trustPos={[550, 5, -800]}
                     />
-                  </Thought>
-                )}
+                    <Directory submitted={submissions.dictator?.submitted || false} />
 
-                </>
+                    {proximityToThoughts[0] && (
+                      <Thought
+                        key={thoughtConfigs.dictator.key}
+                        position={thoughtConfigs.dictator.basePosition}
+                        meshPos={thoughtConfigs.dictator.meshPos}
+                        startDialogue={thoughtConfigs.dictator.startDialogue}
+                        startPosition={thoughtConfigs.dictator.startPosition}
+                        updateDialogue={thoughtConfigs.dictator.updateDialogue}
+                        updatePosition={thoughtConfigs.dictator.updatePosition}
+                        endDialogue={thoughtConfigs.dictator.endDialogue}
+                        endPosition={thoughtConfigs.dictator.endPosition}
+                        prompt={thoughtConfigs.dictator.prompt}
+                        promptPosition={thoughtConfigs.dictator.promptPosition}
+                        submissions={submissions}
+                      >
+                        <thoughtConfigs.dictator.dilemmaComponent
+                          position={thoughtConfigs.dictator.dilemmaPosition}
+                          sendSubmit={handleSubmit}
+                          communityAggregate={aggregate.dictator}
+                        />
+                      </Thought>
+                    )}
+
+                  </>
                 )}
 
                 <Person submissions={submissions} ref={playerRef} />
@@ -175,10 +246,14 @@ function Scene() {
                     promptPosition={thoughtConfigs[activeThoughtId].promptPosition}
                     submissions={submissions}
                   >
-                    {React.createElement(thoughtConfigs[activeThoughtId].dilemmaComponent, {
-                      position: THOUGHT_CENTER,
-                      sendSubmit: storeSubmissions,
-                    })}
+                    {React.createElement(
+                      thoughtConfigs[activeThoughtId].dilemmaComponent,
+                      {
+                        position: THOUGHT_CENTER,
+                        sendSubmit: handleSubmit,
+                        communityAggregate: aggregate[activeThoughtId],
+                      },
+                    )}
                   </Thought>
                 )}
 

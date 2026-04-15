@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { RigidBody, CuboidCollider } from "@react-three/rapier";
 import Text from "../Text/Text";
 import Button from "./Button";
+import { sampleVolunteerChoice, sampleExchangeChoice, sampleTrustReturn } from "../../lib/probabilities";
 
 export default function Submit({
   position,
@@ -12,68 +13,50 @@ export default function Submit({
   errorPosition,
   refractory,
   sendSubmit,
+  communityAggregate,
 }) {
   const intersectionTimeoutRef = useRef(null);
   const [errorState, setErrorState] = useState(false);
   const [errorText, setErrorText] = useState("null");
-  const submitDictator = (_decisionValue) => {
-  };
-
-  const submitVolunteer = (_decisionValue) => {
-    const randomAssignment = () => {
-      if (Math.floor(Math.random() * 5) < 4) {
-        return 5;
-      } else {
-        return 1;
-      }
-    };
-    onSubmit([randomAssignment(), randomAssignment(), randomAssignment()]);
-  };
-
-  const submitExchange = (_decisionValue) => {
-    const randomAssignment = () => {
-      if (Math.floor(Math.random() * 2) === 0) {
-        return true;
-      } else {
-        return false;
-      }
-    };
-    onSubmit(randomAssignment());
-  };
-
-  const submitTrust = (decisionValue) => {
-    const randomAssignment = () => {
-      return Math.floor(Math.random() * (decisionValue * 3 + 1));
-    };
-    onSubmit(randomAssignment());
-  };
 
   const submitDecision = (valid, decisionType, decisionValue) => {
-    if (valid) {
-      setErrorState(false);
-      switch (decisionType) {
-        case "dictator":
-          submitDictator(decisionValue);
-          sendSubmit("dictator", { decisionValue });
-          break;
-        case "volunteer":
-          submitVolunteer(decisionValue);
-          sendSubmit("volunteer", { decisionValue });
-          break;
-        case "exchange":
-          submitExchange(decisionValue);
-          sendSubmit("exchange", { decisionValue });
-          break;
-        case "trust":
-          submitTrust(decisionValue);
-          sendSubmit("trust", { decisionValue });
-          break;
-        default:
-          console.log(`Unknown submission type: ${decisionType}`);
-      }
-    } else {
+    if (!valid) {
       setErrorState(true);
       setErrorText("invalid answer");
+      return;
+    }
+    setErrorState(false);
+
+    switch (decisionType) {
+      case "dictator": {
+        sendSubmit("dictator", { decisionValue, outcomeMeta: {} });
+        break;
+      }
+      case "volunteer": {
+        const confedChoices = [
+          sampleVolunteerChoice(communityAggregate),
+          sampleVolunteerChoice(communityAggregate),
+          sampleVolunteerChoice(communityAggregate),
+        ];
+        onSubmit?.(confedChoices);
+        sendSubmit("volunteer", { decisionValue, outcomeMeta: { confedChoices } });
+        break;
+      }
+      case "exchange": {
+        const confedChoice = sampleExchangeChoice(communityAggregate);
+        onSubmit?.(confedChoice);
+        sendSubmit("exchange", { decisionValue, outcomeMeta: { confedChoice } });
+        break;
+      }
+      case "trust": {
+        const sent = Number(decisionValue) || 0;
+        const returned = sampleTrustReturn(sent, communityAggregate);
+        onSubmit?.(returned);
+        sendSubmit("trust", { decisionValue, outcomeMeta: { returned } });
+        break;
+      }
+      default:
+        console.log(`Unknown submission type: ${decisionType}`);
     }
   };
 

@@ -10,9 +10,9 @@ import Submit from "../Components/Decision/Submit";
 import Coin from "../Components/Interaction/Coin";
 import Eraser from "../Components/Interaction/Eraser";
 import Paper from "../Components/Interaction/Paper";
-import Path from "../Components/UI/Path";
+import Path from "../Components/World/Path";
 
-export default function Volunteer({ position, sendSubmit }) {
+export default function Volunteer({ position, sendSubmit, communityAggregate }) {
   const matcap = useTexture(
     assetUrl("matcaps/C7C7D7_4C4E5A_818393_6C6C74.png"),
   );
@@ -275,6 +275,7 @@ export default function Volunteer({ position, sendSubmit }) {
         }}
         errorPosition={[position[0] + 30, 1, position[2] - 5]}
         sendSubmit={sendSubmit}
+        communityAggregate={communityAggregate}
       />
 
       <Path
