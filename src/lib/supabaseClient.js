@@ -2,103 +2,128 @@ import { createClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const AGGREGATE_RPC = "aggregate_for_thought";
 
 export const supabase = url && key ? createClient(url, key) : null;
 
-export async function createRunSession(seedGold = 50){
-  if(!supabase) return null;
-  const { data, error } = await supabase.rpc("create_run_session", { p_seed_gold: seedGold });
-  if(error) throw error;
+function truncDelta(vd, key) {
+  if (vd == null || typeof vd !== "object") return 0;
+  const x = Number(vd[key]);
+  return Number.isFinite(x) ? Math.trunc(x) : 0;
+}
+
+export async function createSession(seedGold = 0) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("create_session", {
+    p_seed_gold: seedGold,
+  });
+  if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
 }
 
-export async function startInstance(runSessionId, thoughtId, stake){
-  if(!supabase) return null;
+export async function startInstance(sessionId, thoughtId, stake) {
+  if (!supabase) return null;
   const { data, error } = await supabase.rpc("start_instance", {
-    p_run_session_id: runSessionId,
-    p_thought: thoughtId,
+    p_session_id: sessionId,
+    p_thought_id: thoughtId,
     p_stake: stake,
   });
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
 }
 
-export async function recordActionCost(runSessionId, instanceId, cost, reason = "action"){
-  if(!supabase) return null;
+export async function recordActionCost(
+  sessionId,
+  instanceId,
+  cost,
+  reason = "action",
+) {
+  if (!supabase) return null;
   const { data, error } = await supabase.rpc("record_action_cost", {
-    p_run_session_id: runSessionId,
+    p_session_id: sessionId,
     p_instance_id: instanceId,
     p_cost: cost,
     p_reason: reason,
   });
-  if(error) throw error;
+  if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
 }
 
 export async function settleDecision({
-  runSessionId, instanceId, thought, payload, payout,
+  sessionId,
+  instanceId,
+  thoughtId,
+  payload,
+  payout,
   valueDeltas = { trust: 0, altruism: 0, deceit: 0, greed: 0 },
   meta = {},
-}){
-  if(!supabase) return null;
-  const { data, error } = await supabase.rpc("submit_decision_and_settle", {
-    p_run_session_id: runSessionId,
+}) {
+  if (!supabase) return null;
+  const vd = valueDeltas;
+  const p_value_deltas = {
+    trust: truncDelta(vd, "trust"),
+    altruism: truncDelta(vd, "altruism"),
+    deceit: truncDelta(vd, "deceit"),
+    greed: truncDelta(vd, "greed"),
+  };
+  const { data, error } = await supabase.rpc("settle_decision", {
+    p_session_id: sessionId,
     p_instance_id: instanceId,
-    p_thought: thought,
+    p_thought_id: thoughtId,
     p_payload: payload,
     p_payout: payout,
-    p_value_deltas: valueDeltas,
+    p_value_deltas,
     p_meta: meta,
   });
-  if(error) throw error;
+  if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
 }
 
-export async function fetchGold(runSessionId){
-  if(!supabase) return 0;
-  const { data, error } = await supabase.rpc("get_gold_balance", {
-    p_run_session_id: runSessionId,
+export async function fetchGold(sessionId) {
+  if (!supabase) return 0;
+  const { data, error } = await supabase.rpc("get_session_gold", {
+    p_session_id: sessionId,
   });
-  if(error) throw error;
+  if (error) throw error;
   return Number(data) || 0;
 }
 
-export async function fetchValues(runSessionId){
-  if(!supabase) return null;
-  const { data, error } = await supabase.rpc("get_value_stats", {
-    p_run_session_id: runSessionId,
+export async function fetchValues(sessionId) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("get_session_values", {
+    p_session_id: sessionId,
   });
-  if(error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  if (error) throw error;
+  return unwrapRpc(data);
 }
 
-export async function insertDecision(thought, payload, options = {}) {
-  if (!supabase) return;
-  const baseRow = { thought, payload };
-  const extendedRow = {
-    ...baseRow,
-    run_session_id: options.runSessionId ?? null,
+export async function insertDecision(thoughtId, payload, options = {}) {
+  if (!supabase) return null;
+
+  const vd = options.valueDeltas;
+  const row = {
+    thought_id: thoughtId,
+    payload,
+    session_id: options.sessionId ?? null,
     instance_id: options.instanceId ?? null,
+    value_deltas: {
+      trust: truncDelta(vd, "trust"),
+      altruism: truncDelta(vd, "altruism"),
+      deceit: truncDelta(vd, "deceit"),
+      greed: truncDelta(vd, "greed"),
+    },
+    outcome_label: options.outcomeLabel ?? "neutral",
   };
 
-  const { error } = await supabase.from("decision_events").insert(extendedRow);
-  if (!error) return;
-
-  const isMissingColumnError =
-    typeof error.message === "string" &&
-    (error.message.includes("run_session_id") ||
-      error.message.includes("instance_id"));
-
-  if (!isMissingColumnError) {
-    throw error;
-  }
-
-  const fallback = await supabase.from("decision_events").insert(baseRow);
-  if (fallback.error) throw fallback.error;
+  const { data, error } = await supabase
+    .from("decision_events")
+    .insert(row)
+    .select("id");
+  if (error) throw error;
+  const first = Array.isArray(data) ? data[0] : data;
+  return first?.id ?? null;
 }
 
-function normalizeAggregate(data) {
+export function unwrapRpc(data) {
   let row = data;
   if (row == null) return null;
   if (typeof row === "string") {
@@ -116,27 +141,45 @@ function normalizeAggregate(data) {
   if (keys.length === 1) {
     const inner = row[keys[0]];
     if (inner != null && typeof inner === "object") {
-      row = Array.isArray(inner)
-        ? inner.length > 0
-          ? inner[0]
-          : null
-        : inner;
+      row = Array.isArray(inner) ? (inner.length > 0 ? inner[0] : null) : inner;
     }
   }
   return row;
 }
 
-export async function fetchAggregate(thought) {
-  if (!supabase) return null;
-  const { data, error } = await supabase.rpc(AGGREGATE_RPC, {
-    p_thought: thought,
-  });
-  if (error) throw error;
-  return normalizeAggregate(data);
+function unwrapThoughtAggregateRpc(data) {
+  let row = unwrapRpc(data);
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (row == null) return null;
+    if (typeof row !== "object") return row;
+    const keys = Object.keys(row);
+    if (keys.length !== 1) return row;
+    const inner = row[keys[0]];
+    if (inner == null) return null;
+    if (typeof inner === "object") {
+      row = Array.isArray(inner) ? (inner.length > 0 ? inner[0] : null) : inner;
+      continue;
+    }
+    return inner;
+  }
+  return row;
 }
 
-export function buildDecisionPayload(thought, decisionValue, outcomeMeta = {}) {
-  switch (thought) {
+export async function fetchAggregate(thoughtId) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("get_thought_aggregate", {
+    p_thought_id: thoughtId,
+  });
+  if (error) throw error;
+  return unwrapThoughtAggregateRpc(data);
+}
+
+export function buildDecisionPayload(
+  thoughtId,
+  decisionValue,
+  outcomeMeta = {},
+) {
+  switch (thoughtId) {
     case "dictator":
       return { receiver_coins: Number(decisionValue) };
     case "volunteer":

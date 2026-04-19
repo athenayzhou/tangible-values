@@ -1,7 +1,7 @@
 // key control reference: Minecraft by drcmda
 // https://codesandbox.io/p/sandbox/minecraft-vkgi6?file=%2Fsrc%2FPlayer.js%3A24%2C5-24%2C60
 
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, forwardRef, useImperativeHandle } from "react";
 import { Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
 import { useKeyboardControls, useCubeTexture } from "@react-three/drei";
@@ -19,7 +19,7 @@ const sideVector = new Vector3();
 const direction = new Vector3();
 const MOVE_SMOOTH = 12;
 
-const Person = forwardRef(({ position, submissions }, ref) => {
+const Person = forwardRef(({ position, submissions: _submissions }, ref) => {
   const personRef = useRef();
   useImperativeHandle(ref, () => personRef.current);
   const { onPositionChange, onProximity, onThoughtPosition } = useCameraRig();
@@ -129,5 +129,7 @@ const Person = forwardRef(({ position, submissions }, ref) => {
     </>
   );
 });
+
+Person.displayName = "Person";
 
 export default Person;

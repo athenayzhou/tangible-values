@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { CuboidCollider } from "@react-three/rapier";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Vector3, Plane } from "three";
 
 import DragObj from "../Components/Interaction/DragObj";
@@ -8,6 +7,9 @@ import Sensor from "../Components/Interaction/Sensor";
 import Submit from "../Components/Decision/Submit";
 import Coin from "../Components/Interaction/Coin";
 import Path from "../Components/World/Path";
+
+/** Seconds after triple before returned coins start flying (was hardcoded 5s in Coin). */
+const TRUST_RETURN_LEAD_IN_SEC = 2;
 
 function SensorMult({ option, position, handleSensedChange, i, resetSensor }) {
   return (
@@ -234,7 +236,9 @@ function CoinMult({ position, setDragState, floorPlane, sensedCoinState }) {
 
 export default function Trust({ position, sendSubmit, communityAggregate }) {
   const floorPlane = new Plane(new Vector3(0, 1, 0), 0);
-  const [dragState, setDragState] = useState(false);
+  const posX = position[0];
+  const posZ = position[2];
+  const [, setDragState] = useState(false);
   const [confedSensors, setConfedSensors] = useState({});
   const [userSensors, setUserSensors] = useState({});
   const [confedCounter, setConfedCounter] = useState(0);
@@ -244,18 +248,14 @@ export default function Trust({ position, sendSubmit, communityAggregate }) {
   const [multiply, setMultiply] = useState(false);
   const [confedState, setConfedState] = useState(false);
 
-  const [initialCoins, setInitialCoins] = useState([]);
-  const [renderCoins, setRenderCoins] = useState([]);
-  const [totalCoins, setTotalCoins] = useState([]);
-  const [payoutState, setPayoutState] = useState(false);
-  const [reactionState, setReactionState] = useState(false);
+  const [coinSpawns, setCoinSpawns] = useState([]);
+  const [, setReactionState] = useState(false);
   const [reaction, setReaction] = useState(`null`);
 
   const [userText, setUserText] = useState(`null`);
   const [confedText, setConfedText] = useState(`null`);
 
-  const [sendPos, setSendPos] = useState([550, 10, -600]);
-  const [sendCoinsCalled, setSendCoinsCalled] = useState(false);
+  const returnCenter = useMemo(() => [posX, 10, posZ + 170], [posX, posZ]);
   const [resetSensor, setResetSensor] = useState(false);
 
   const [submitRefractory, setSubmitRefractory] = useState(false);
@@ -303,38 +303,7 @@ export default function Trust({ position, sendSubmit, communityAggregate }) {
     setUserCounter(totalUserSensed);
   }, [confedSensors, userSensors]);
 
-  useEffect(() => {
-    if (renderCoins.length > 0) {
-      setTotalCoins([...initialCoins, ...renderCoins]);
-      setSendCoinsCalled(false);
-    }
-  }, [renderCoins, initialCoins]);
-
-  useEffect(() => {
-    if (totalCoins.length > 0 && !sendCoinsCalled) {
-      sendCoins(confed);
-    }
-  }, [totalCoins, sendCoinsCalled]);
-
-  const sendCoins = (confed) => {
-    const updatedCoins = totalCoins.map((coin, index) => {
-      const coinsToSend = index >= totalCoins.length - confed;
-      const updatedCoin = {
-        ...coin,
-        props: {
-          ...coin.props,
-          payoutState: coinsToSend ? true : false,
-        },
-      };
-      return updatedCoin;
-    });
-    setTotalCoins(updatedCoins);
-    setSendCoinsCalled(true);
-
-    setMultiply(true);
-  };
-
-  const reconcile = () => {
+  const reconcile = useCallback(() => {
     setReactionState(true);
     setReaction(":|");
 
@@ -355,39 +324,44 @@ export default function Trust({ position, sendSubmit, communityAggregate }) {
     });
     setSensedCoinState(updateSensedCoinState);
 
-    const newRenderCoins = sensed.reduce((acc, { number, position }, index) => {
+    const returnedCount =
+      typeof confed === "number" && Number.isFinite(confed) ? confed : 0;
+
+    const spawns = sensed.flatMap(({ position }, index) => {
       const coinIndex = index * 3;
-      setInitialCoins((prevCoins) => [
-        ...prevCoins,
-        <Coin
-          key={`coin-${coinIndex}`}
-          position={[position[0], 10, position[2]]}
-          sendPos={sendPos}
-          payoutState={payoutState}
-          delay={coinIndex * 0.2}
-        />,
-      ]);
-      acc.push(
-        <Coin
-          key={`coin-${coinIndex + 1}`}
-          position={[position[0], 20, position[2]]}
-          sendPos={sendPos}
-          payoutState={payoutState}
-          delay={(coinIndex + 1) * 0.2}
-        />,
-      );
-      acc.push(
-        <Coin
-          key={`coin-${coinIndex + 2}`}
-          position={[position[0], 30, position[2]]}
-          sendPos={sendPos}
-          payoutState={payoutState}
-          delay={(coinIndex + 2) * 0.2}
-        />,
-      );
-      return acc;
-    }, []);
-    setRenderCoins(newRenderCoins);
+      const baseY = (position?.[1] ?? 0) + 1;
+      return [0, 1, 2].map((_, yIndex) => {
+        return {
+          key: `coin-${coinIndex + yIndex}`,
+          // Keep one coin at the original sent position, then stack two above it.
+          position: [position[0], baseY + yIndex * 10, position[2]],
+          delay: (coinIndex + yIndex) * 0.2,
+        };
+      });
+    });
+
+    const total = spawns.length;
+    setCoinSpawns(
+      spawns.map((spawn, index) => ({
+        ...spawn,
+        payoutState: index >= total - returnedCount,
+        sendPos:
+          index >= total - returnedCount
+            ? (() => {
+                const scatterIndex = index - (total - returnedCount);
+                const scatterCount = Math.max(returnedCount, 1);
+                const angle = (scatterIndex / scatterCount) * Math.PI * 2;
+                const radius = 2 + (scatterIndex % 2) * 1.5;
+                return [
+                  returnCenter[0] + Math.cos(angle) * radius,
+                  returnCenter[1] + (scatterIndex % 3) * 0.6,
+                  returnCenter[2] + Math.sin(angle) * radius,
+                ];
+              })()
+            : returnCenter,
+      })),
+    );
+    setMultiply(true);
 
     setTimeout(() => {
       setConfedState(true);
@@ -397,24 +371,27 @@ export default function Trust({ position, sendSubmit, communityAggregate }) {
 
     setTimeout(
       () => {
-        setResetRefractory(false);
+        setSubmitRefractory(false);
         setPathState(true);
       },
       confed * 1000 + 5000,
     );
-  };
+  }, [confedSensors, sensedCoinState, confed, returnCenter]);
 
   useEffect(() => {
     if (multiply) {
-      setTimeout(() => {
-        setUserText(`${userCounter + confed}`);
-        setConfedText(`${confedCounter * 3 - confed}`);
-      }, 5000);
+      setTimeout(
+        () => {
+          setUserText(`${userCounter + confed}`);
+          setConfedText(`${confedCounter * 3 - confed}`);
+        },
+        TRUST_RETURN_LEAD_IN_SEC * 1000 + 800,
+      );
     } else {
       setUserText(`${userCounter}`);
       setConfedText(`${confedCounter}`);
     }
-  }, [userCounter, confedCounter, multiply]);
+  }, [userCounter, confedCounter, multiply, confed]);
 
   useEffect(() => {
     if (confed !== null) {
@@ -423,7 +400,7 @@ export default function Trust({ position, sendSubmit, communityAggregate }) {
 
       setSubmitRefractory(true);
     }
-  }, [confed]);
+  }, [confed, reconcile]);
 
   return (
     <>
@@ -498,7 +475,17 @@ export default function Trust({ position, sendSubmit, communityAggregate }) {
         sensedCoinState={sensedCoinState}
       />
 
-      {multiply && totalCoins}
+      {multiply &&
+        coinSpawns.map((spawn) => (
+          <Coin
+            key={spawn.key}
+            position={spawn.position}
+            sendPos={spawn.sendPos ?? returnCenter}
+            payoutState={spawn.payoutState}
+            delay={spawn.delay}
+            payoutLeadIn={TRUST_RETURN_LEAD_IN_SEC}
+          />
+        ))}
 
       <Path
         position={[position[0] + 325, position[1], position[2] + 900]}

@@ -9,7 +9,8 @@ export default function Directory({ submitted }) {
         position={[0, 5, -450]}
         rotation={[0, 0, 0]}
         scale={3}
-        state={!submitted}
+        // state={!submitted}
+        state={true}
       />
       <Label
         text={"VOLUNTEER'S DILEMMA"}

@@ -1,4 +1,9 @@
-import { DICTATOR_PROMPT, VOLUNTEER_PROMPT, EXCHANGE_PROMPT, TRUST_PROMPT } from "./thoughtPrompts";
+import {
+  DICTATOR_PROMPT,
+  VOLUNTEER_PROMPT,
+  EXCHANGE_PROMPT,
+  TRUST_PROMPT,
+} from "./thoughtPrompts";
 import {
   LazyDictator,
   LazyVolunteer,
@@ -15,7 +20,7 @@ export const thoughtConfigs = {
     portalPosition: [0, 5, -400],
     meshPos: [0, 6, 150],
     playerSpawn: [0, 20, -100],
-    
+
     startDialogue: `HELLO THERE ! COME CLOSER`,
     startPosition: [0, 20, 150],
     updateDialogue: `DRAG THE COINS TO THE MARKED AREA \nACCORDING TO YOUR PROPOSED DIVISION.`,

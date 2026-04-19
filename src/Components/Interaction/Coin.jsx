@@ -8,7 +8,8 @@ export default function Coin({
   position,
   onSendCoin: _onSendCoin,
   sendPos,
-  delay,
+  delay = 0,
+  payoutLeadIn = 5,
   payoutState,
 }) {
   const { nodes } = useGLTF(assetUrl("models/coin.glb"));
@@ -29,14 +30,14 @@ export default function Coin({
         y: sendPos[1],
         z: sendPos[2],
         duration: 2,
-        delay: delay + 5,
+        delay: delay + payoutLeadIn,
         ease: "power2.inOut",
         onUpdate: () => {
           setCoinPos([...coinRef.current.parent.position]);
         },
       });
     }
-  }, [payoutState]);
+  }, [payoutState, sendPos, delay, payoutLeadIn]);
 
   return (
     <>

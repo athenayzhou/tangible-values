@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Vector3, Plane } from "three";
+import { RigidBody, CapsuleCollider } from "@react-three/rapier";
 
 import DragObj from "../Components/Interaction/DragObj";
 import Sensor from "../Components/Interaction/Sensor";
 import Text from "../Components/Text/Text";
 import Submit from "../Components/Decision/Submit";
+import { dictatorAggregate } from "../lib/aggregateDisplay";
 
 function CoinMult({ position, setDragState, floorPlane }) {
   return (
@@ -83,11 +85,33 @@ function CoinMult({ position, setDragState, floorPlane }) {
   );
 }
 
-export default function Dictator({ position, sendSubmit }) {
+export default function Dictator({
+  position,
+  sendSubmit,
+  aggregate,
+  aggregateLoading = false,
+  aggregateRefresh,
+  dictatorLocked,
+  dictatorSubmitted = false,
+  dictatorDecision,
+}) {
   const floorPlane = new Plane(new Vector3(0, 1, 0), 0);
-  const [dragState, setDragState] = useState(false);
+  const [, setDragState] = useState(false);
   const [dictator, setDictator] = useState(0);
   const [reciever, setReciever] = useState(0);
+  const [showAggregate, setShowAggregate] = useState(false);
+
+  const receiverCoins = Number(dictatorDecision);
+  const keptAmount =
+    dictatorSubmitted &&
+    dictatorDecision != null &&
+    Number.isFinite(receiverCoins)
+      ? Math.max(0, 10 - receiverCoins)
+      : null;
+
+  const communityAggregate = aggregateLoading
+    ? "COMMUNITY: loading…"
+    : (dictatorAggregate(aggregate) ?? "COMMUNITY: no data yet");
 
   const handleSensedChange = (option, number, count) => {
     if (option == "dictator") {
@@ -99,6 +123,29 @@ export default function Dictator({ position, sendSubmit }) {
 
   return (
     <>
+      <RigidBody
+        type="fixed"
+        colliders={false}
+        position={[position[0], position[1] + 18, position[2] + 55]}
+      >
+        <CapsuleCollider
+          args={[5, 200, 5]}
+          sensor
+          position={[0, 0, 85]}
+          onIntersectionEnter={(payload) => {
+            if (payload.other.rigidBodyObject.children[0].name == "person") {
+              aggregateRefresh?.();
+              setShowAggregate(true);
+            }
+          }}
+          onIntersectionExit={(payload) => {
+            if (payload.other.rigidBodyObject.children[0].name == "person") {
+              setShowAggregate(false);
+            }
+          }}
+        />
+      </RigidBody>
+
       <Text
         text={`${dictator}`}
         state={true}
@@ -109,6 +156,23 @@ export default function Dictator({ position, sendSubmit }) {
         state={true}
         position={[position[0] + 50, 10, position[2] + 85]}
       />
+      <Text
+        text={communityAggregate}
+        state={showAggregate}
+        position={[position[0], 12, position[2] + 15]}
+        rotation={[0, 0, 0]}
+        scale={[2, 2, 2]}
+      />
+      {keptAmount != null && (
+        <Text
+          text={`YOU: kept ${keptAmount} coins`}
+          state={true}
+          position={[position[0], 18, position[2] + 15]}
+          rotation={[0, 0, 0]}
+          scale={[2, 2, 2]}
+        />
+      )}
+      
       <Text
         text={`dictator`}
         state={true}
@@ -128,7 +192,7 @@ export default function Dictator({ position, sendSubmit }) {
         decisionType={"dictator"}
         decisionValue={reciever}
         errorPosition={[position[0] - 20, 1, position[2] + 40]}
-        refractory={false}
+        refractory={!!dictatorLocked}
         sendSubmit={sendSubmit}
       />
 

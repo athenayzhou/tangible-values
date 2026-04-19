@@ -13,6 +13,7 @@ export function useAggregate() {
 
   const lastFetchRef = useRef({});
   const timerRef = useRef({});
+  const inFlightCountRef = useRef({});
 
   useEffect(() => {
     return () => {
@@ -36,18 +37,34 @@ export function useAggregate() {
       }
     }
 
-    setAggregateLoading((prev) => ({ ...prev, [id]: true }));
+    const busy = (inFlightCountRef.current[id] ?? 0) > 0;
+    if (!force && busy) {
+      return;
+    }
+
+    inFlightCountRef.current[id] = (inFlightCountRef.current[id] ?? 0) + 1;
+    const startedCount = inFlightCountRef.current[id];
+    if (startedCount === 1) {
+      setAggregateLoading((prev) => ({ ...prev, [id]: true }));
+    }
+
     void fetchAggregate(id)
       .then((data) => {
+        setAggregate((prev) => ({ ...prev, [id]: data ?? null }));
         if (data != null) {
-          setAggregate((prev) => ({ ...prev, [id]: data }));
           lastFetchRef.current[id] = performance.now();
         }
       })
       .catch((err) => console.error("fetchAggregate", id, err))
-      .finally(() =>
-        setAggregateLoading((prev) => ({ ...prev, [id]: false })),
-      );
+      .finally(() => {
+        inFlightCountRef.current[id] = Math.max(
+          0,
+          (inFlightCountRef.current[id] ?? 1) - 1,
+        );
+        if (inFlightCountRef.current[id] === 0) {
+          setAggregateLoading((prev) => ({ ...prev, [id]: false }));
+        }
+      });
   }, []);
 
   const cancelDebounce = useCallback((id) => {
@@ -58,28 +75,37 @@ export function useAggregate() {
     }
   }, []);
 
-  const scheduleFetch = useCallback((id) => {
-    if (!id || id === "exit") return;
-    cancelDebounce(id);
-    timerRef.current[id] = window.setTimeout(() => {
-      delete timerRef.current[id];
-      runAggregateFetch(id, { force: false });
-    }, AGGREGATE_PROX_DEBOUNCE_MS);
-  }, [cancelDebounce, runAggregateFetch]);
-
-  const handlePortalProximity = useCallback((id, isNear) => {
-    if (id === "exit") return;
-    if (!isNear) {
+  const scheduleFetch = useCallback(
+    (id) => {
+      if (!id || id === "exit") return;
       cancelDebounce(id);
-      return;
-    }
-    scheduleFetch(id);
-  }, [scheduleFetch, cancelDebounce]);
+      timerRef.current[id] = window.setTimeout(() => {
+        delete timerRef.current[id];
+        runAggregateFetch(id, { force: false });
+      }, AGGREGATE_PROX_DEBOUNCE_MS);
+    },
+    [cancelDebounce, runAggregateFetch],
+  );
 
-  const refreshAggregate = useCallback((id) => {
-    cancelDebounce(id);
-    runAggregateFetch(id, { force: true });
-  }, [cancelDebounce, runAggregateFetch]);
+  const handlePortalProximity = useCallback(
+    (id, isNear) => {
+      if (id === "exit") return;
+      if (!isNear) {
+        cancelDebounce(id);
+        return;
+      }
+      scheduleFetch(id);
+    },
+    [scheduleFetch, cancelDebounce],
+  );
+
+  const refreshAggregate = useCallback(
+    (id) => {
+      cancelDebounce(id);
+      runAggregateFetch(id, { force: true });
+    },
+    [cancelDebounce, runAggregateFetch],
+  );
 
   return {
     aggregate,

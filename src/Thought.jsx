@@ -9,6 +9,7 @@ import { useCameraRig } from "./context/CameraRigContext";
 import { assetUrl } from "./lib/assetUrl";
 
 function Thought({
+  thoughtId,
   position,
   meshPos,
   startDialogue,
@@ -35,15 +36,38 @@ function Thought({
   const [dialoguePosition, setDialoguePosition] = useState(startPosition);
 
   useEffect(() => {
+    const sub = thoughtId ? submissions?.[thoughtId] : null;
+    if (thoughtId && sub?.submitted === true) {
+      if (thoughtId === "dictator") {
+        setDialogue(updateDialogue);
+        setDialoguePosition(updatePosition);
+        setDialogueState(true);
+        return;
+      }
+      setDialogue(endDialogue);
+      setDialoguePosition(endPosition);
+      return;
+    }
+
+    // Backward-compatible fallback (deprecated): detect completion via child keys.
     React.Children.forEach(children, (child) => {
-      const childKey = child.key;
-      const submissionValue = submissions && submissions[childKey];
+      const childKey = child?.key;
+      if (!childKey) return;
+      const submissionValue = submissions?.[childKey];
       if (submissionValue?.submitted === true) {
         setDialogue(endDialogue);
         setDialoguePosition(endPosition);
       }
     });
-  }, [submissions, children]);
+  }, [
+    submissions,
+    children,
+    thoughtId,
+    endDialogue,
+    endPosition,
+    updateDialogue,
+    updatePosition,
+  ]);
 
   return (
     <>
@@ -142,15 +166,21 @@ const vec3Eq = (a, b) =>
   a[1] === b[1] &&
   a[2] === b[2];
 
+// Default shallow compare (including `children`) so dilemma props like `aggregate`
+// on `<Dictator />` still flow when only those change. A custom comparator that
+// omitted `children` caused dictator community stats to stay on "no data yet".
 const MemoizedThought = React.memo(Thought, (prevProps, nextProps) => {
   return (
+    prevProps.thoughtId === nextProps.thoughtId &&
     prevProps.submissions === nextProps.submissions &&
     prevProps.startDialogue === nextProps.startDialogue &&
     prevProps.updateDialogue === nextProps.updateDialogue &&
+    prevProps.updatePosition === nextProps.updatePosition &&
     prevProps.endDialogue === nextProps.endDialogue &&
     prevProps.prompt === nextProps.prompt &&
     vec3Eq(prevProps.position, nextProps.position) &&
-    vec3Eq(prevProps.meshPos, nextProps.meshPos)
+    vec3Eq(prevProps.meshPos, nextProps.meshPos) &&
+    prevProps.children === nextProps.children
   );
 });
 

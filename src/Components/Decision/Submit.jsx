@@ -2,7 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { RigidBody, CuboidCollider } from "@react-three/rapier";
 import Text from "../Text/Text";
 import Button from "./Button";
-import { sampleVolunteerChoice, sampleExchangeChoice, sampleTrustReturn } from "../../lib/probabilities";
+import {
+  sampleVolunteerChoice,
+  sampleExchangeChoice,
+  sampleTrustReturn,
+} from "../../lib/probabilities";
 
 export default function Submit({
   position,
@@ -33,19 +37,22 @@ export default function Submit({
         break;
       }
       case "volunteer": {
-        const confedChoices = [
-          sampleVolunteerChoice(communityAggregate),
-          sampleVolunteerChoice(communityAggregate),
-          sampleVolunteerChoice(communityAggregate),
-        ];
+        const round = sampleVolunteerChoice(communityAggregate, 3);
+        const confedChoices = round.choices;
         onSubmit?.(confedChoices);
-        sendSubmit("volunteer", { decisionValue, outcomeMeta: { confedChoices } });
+        sendSubmit("volunteer", {
+          decisionValue,
+          outcomeMeta: { confedChoices },
+        });
         break;
       }
       case "exchange": {
         const confedChoice = sampleExchangeChoice(communityAggregate);
         onSubmit?.(confedChoice);
-        sendSubmit("exchange", { decisionValue, outcomeMeta: { confedChoice } });
+        sendSubmit("exchange", {
+          decisionValue,
+          outcomeMeta: { confedChoice },
+        });
         break;
       }
       case "trust": {
@@ -72,7 +79,7 @@ export default function Submit({
       setErrorState(false);
     } else {
       setErrorState(true);
-      setErrorText(`please refresh \nbefore answering \nagain`);
+      setErrorText(`this instance \nhas been settled.`);
     }
   };
 

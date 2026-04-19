@@ -40,7 +40,18 @@ export default function Sensor({
         setOpacity(0);
       }
     }
-  }, [count, bool, colorState, num]);
+  }, [
+    type,
+    onSensedChange,
+    option,
+    number,
+    count,
+    sensorPosition,
+    num,
+    bool,
+    colorState,
+    eraserState,
+  ]);
 
   useEffect(() => {
     if (resetSensor == true) {
@@ -60,7 +71,7 @@ export default function Sensor({
       >
         <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={args} />
-          <meshBasicMaterial color={"#696870"} transparent opacity={opacity} />
+          <meshBasicMaterial color={color} transparent opacity={opacity} />
         </mesh>
         <CuboidCollider
           sensor

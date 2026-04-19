@@ -25,6 +25,18 @@ export function stakeForThought(thoughtId) {
   }
 }
 
+export function isInsufficientStake(err) {
+  const parts = [
+    err?.message,
+    err?.details,
+    err?.hint,
+    typeof err === "string" ? err : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return /insufficient gold for stake/i.test(parts);
+}
+
 export function payoutForDecision(thoughtId, decisionValue, outcomeMeta = {}) {
   switch (thoughtId) {
     case "dictator": {
@@ -51,9 +63,9 @@ export function payoutForDecision(thoughtId, decisionValue, outcomeMeta = {}) {
     case "exchange": {
       const playerChoice = resolveExchange(decisionValue);
       const confedChoice = resolveExchange(outcomeMeta.confedChoice);
-      if (playerChoice === "deceive" && confedChoice === "deceive") return 3;
+      if (playerChoice === "deceive" && confedChoice === "deceive") return 2;
       if (playerChoice === "exchange" && confedChoice === "exchange") return 5;
-      if (playerChoice === "deceive" && confedChoice === "exchange") return 8;
+      if (playerChoice === "deceive" && confedChoice === "exchange") return 7;
       return 0;
     }
     default:

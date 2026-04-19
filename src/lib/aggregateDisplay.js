@@ -1,27 +1,8 @@
+import { unwrapRpc } from "./supabaseClient";
+
 function whole(n) {
   const v = Number(n);
   return Number.isFinite(v) ? Math.round(v) : 0;
-}
-
-function coerceAggregateRow(raw) {
-  if (raw == null) return null;
-  let row = raw;
-  if (Array.isArray(row)) {
-    row = row.length > 0 ? row[0] : null;
-  }
-  if (row == null || typeof row !== "object") return null;
-  const keys = Object.keys(row);
-  if (keys.length === 1) {
-    const inner = row[keys[0]];
-    if (inner != null && typeof inner === "object") {
-      row = Array.isArray(inner)
-        ? inner.length > 0
-          ? inner[0]
-          : null
-        : inner;
-    }
-  }
-  return row;
 }
 
 function splitFromCounts(c1, c2) {
@@ -35,25 +16,24 @@ function splitFromCounts(c1, c2) {
 }
 
 export function formatAggregate(thoughtId, raw) {
-  const aggregate = coerceAggregateRow(raw);
+  const aggregate = unwrapRpc(raw);
   if (!aggregate) return null;
 
   switch (thoughtId) {
     case "dictator": {
       const mk =
-        aggregate.mean_kept ??
-        aggregate.avg_kept ??
-        aggregate.meanKept;
+        aggregate.mean_kept ?? aggregate.avg_kept ?? aggregate.meanKept;
       const mg =
-        aggregate.mean_given ??
-        aggregate.avg_given ??
-        aggregate.meanGiven;
+        aggregate.mean_given ?? aggregate.avg_given ?? aggregate.meanGiven;
       if (mk == null && mg == null) return null;
       return `avg ${whole(mk)} kept · avg ${whole(mg)} given`;
     }
     case "volunteer": {
       const nTotal =
-        aggregate.n ?? aggregate.total ?? aggregate.count ?? aggregate.row_count;
+        aggregate.n ??
+        aggregate.total ??
+        aggregate.count ??
+        aggregate.row_count;
       if (nTotal !== undefined && Number(nTotal) === 0) {
         return "no responses yet";
       }
@@ -92,7 +72,10 @@ export function formatAggregate(thoughtId, raw) {
     }
     case "exchange": {
       const nTotal =
-        aggregate.n ?? aggregate.total ?? aggregate.count ?? aggregate.row_count;
+        aggregate.n ??
+        aggregate.total ??
+        aggregate.count ??
+        aggregate.row_count;
       if (nTotal !== undefined && Number(nTotal) === 0) {
         return "no responses yet";
       }
@@ -112,7 +95,9 @@ export function formatAggregate(thoughtId, raw) {
       if (k == null || e == null) {
         const p = aggregate.majority_pct ?? aggregate.majority_percent;
         const rawChoice =
-          aggregate.majority_choice != null ? String(aggregate.majority_choice) : "";
+          aggregate.majority_choice != null
+            ? String(aggregate.majority_choice)
+            : "";
         const c = rawChoice.trim().toLowerCase();
         if (p != null && p !== "" && (c === "keep" || c === "exchange")) {
           const pw = whole(p);
@@ -144,4 +129,25 @@ export function formatAggregate(thoughtId, raw) {
     default:
       return null;
   }
+}
+
+export function dictatorAggregate(raw) {
+  const aggregate = unwrapRpc(raw);
+  if (!aggregate) return null;
+  const nTotal =
+    aggregate.n ?? aggregate.total ?? aggregate.count ?? aggregate.row_count;
+  if (nTotal !== undefined && Number(nTotal) === 0) {
+    return "COMMUNITY: no responses yet";
+  }
+  const mg = aggregate.mean_given ?? aggregate.avg_given ?? aggregate.meanGiven;
+  const mkDirect =
+    aggregate.mean_kept ?? aggregate.avg_kept ?? aggregate.meanKept;
+  const mk =
+    mkDirect != null && Number.isFinite(Number(mkDirect))
+      ? Number(mkDirect)
+      : mg != null && Number.isFinite(Number(mg))
+        ? 10 - Number(mg)
+        : null;
+  if (mk == null) return null;
+  return `COMMUNITY: avg ${whole(mk)} coins kept`;
 }

@@ -9,7 +9,6 @@ import { animated, useSpring } from "@react-spring/three";
 import { CylinderCollider, RigidBody } from "@react-three/rapier";
 import { assetUrl } from "../../lib/assetUrl";
 
-
 export default function DragObj({
   name,
   startPosition,

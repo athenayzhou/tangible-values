@@ -1,18 +1,19 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import { useGLTF } from "@react-three/drei";
 
 import { assetUrl } from "../lib/assetUrl";
 import gsap from "gsap";
-import { MeshTransmissionMaterial } from "@react-three/drei";
 
 import Text from "../Components/Text/Text";
 import Sensor from "../Components/Interaction/Sensor";
 import Submit from "../Components/Decision/Submit";
 import Wall from "../Components/Interaction/Wall";
 import Path from "../Components/World/Path";
+import { useTimedStages } from "../hooks/useTimedStages";
 
 export default function Exchange({ position, sendSubmit, communityAggregate }) {
+  const { schedule } = useTimedStages();
   const { nodes: appleNodes } = useGLTF(assetUrl("models/apple.glb"));
   const { nodes: orangeNodes } = useGLTF(assetUrl("models/orange.glb"));
 
@@ -22,7 +23,6 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
   const [confed, setConfed] = useState(null);
   const [confedState, setConfedState] = useState(false);
   const [confedText, setConfedText] = useState("null");
-  const [confedText1, setConfedText1] = useState("n");
   const [confedTextPosition, setConfedTextPosition] = useState([
     position[0],
     15,
@@ -47,6 +47,8 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
   const [reaction, setReaction] = useState("null");
   const [submitRefractory, setSubmitRefractory] = useState(false);
   const [pathState, setPathState] = useState(false);
+  const posX = position[0];
+  const posZ = position[2];
 
   const handleSensedChange = (option, bool) => {
     if (option == "deceive") {
@@ -61,8 +63,8 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
       if (confed == true) {
         const tl = gsap.timeline();
         tl.to(confedFruit.current.parent.position, {
-          x: position[0] - 70,
-          z: position[2] + 140,
+          x: posX - 70,
+          z: posZ + 140,
           duration: 5,
           ease: "power2.inOut",
           onUpdate: () => {
@@ -74,8 +76,8 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
       if (exchange == true) {
         const tl = gsap.timeline();
         tl.to(userFruit.current.parent.position, {
-          x: position[0] + 50,
-          z: position[2] + 45,
+          x: posX + 50,
+          z: posZ + 45,
           duration: 5,
           ease: "power2.inOut",
           onUpdate: () => {
@@ -85,14 +87,14 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
         });
       }
     }
-  }, [payoutState]);
+  }, [payoutState, confed, exchange, posX, posZ]);
 
   useEffect(() => {
     if (confed == true) {
       const tl = gsap.timeline();
       tl.to(confedFruit.current.parent.position, {
-        x: position[0],
-        z: position[2] + 50,
+        x: posX,
+        z: posZ + 50,
         duration: 5,
         ease: "power2.inOut",
         onUpdate: () => {
@@ -116,8 +118,8 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
     } else if (confed == false) {
       const tl = gsap.timeline();
       tl.to(confedFruit.current.parent.position, {
-        x: position[0] + 65,
-        z: position[2] + 95,
+        x: posX + 65,
+        z: posZ + 95,
         duration: 5,
         ease: "power2.inOut",
         onUpdate: () => {
@@ -139,9 +141,9 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
         ">-2",
       );
     }
-  }, [confed, position]);
+  }, [confed, posX, posZ]);
 
-  const reconcile = () => {
+  const reconcile = useCallback(() => {
     setConfedState(true);
 
     if (confed == true && exchange == true) {
@@ -164,22 +166,15 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
 
     if (confed == true) {
       setConfedText("trade");
-      setConfedText1("O");
-      setConfedTextPosition([position[0] - 7, 15, position[2] + 50]);
+      setConfedTextPosition([posX - 7, 15, posZ + 50]);
     } else {
       setConfedText("deceive");
-      setConfedText1("X");
-      setConfedTextPosition([position[0] - 6, 15, position[2] + 50]);
+      setConfedTextPosition([posX - 6, 15, posZ + 50]);
     }
 
-    setTimeout(() => {
-      setPayoutState(true);
-    }, 4000);
-
-    setTimeout(() => {
-      setPathState(true);
-    }, 10000);
-  };
+    schedule(4000, () => setPayoutState(true));
+    schedule(10000, () => setPathState(true));
+  }, [confed, exchange, deceive, posX, posZ, schedule]);
 
   useEffect(() => {
     // console.log(confed)
@@ -187,7 +182,7 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
       reconcile();
       setSubmitRefractory(true);
     }
-  }, [confed]);
+  }, [confed, reconcile]);
 
   return (
     <>

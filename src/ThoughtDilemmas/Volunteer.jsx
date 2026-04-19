@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
-import { RigidBody, CuboidCollider } from "@react-three/rapier";
-import { Vector3, Plane } from "three";
+import { useState, useEffect, useCallback } from "react";
+import { RigidBody } from "@react-three/rapier";
 import { useTexture, useCubeTexture } from "@react-three/drei";
 
 import Text from "../Components/Text/Text";
@@ -11,8 +10,16 @@ import Coin from "../Components/Interaction/Coin";
 import Eraser from "../Components/Interaction/Eraser";
 import Paper from "../Components/Interaction/Paper";
 import Path from "../Components/World/Path";
+import { useTimedStages } from "../hooks/useTimedStages";
 
-export default function Volunteer({ position, sendSubmit, communityAggregate }) {
+export default function Volunteer({
+  position,
+  sendSubmit,
+  communityAggregate,
+}) {
+  const { schedule } = useTimedStages();
+  const posX = position[0];
+  const posZ = position[2];
   const matcap = useTexture(
     assetUrl("matcaps/C7C7D7_4C4E5A_818393_6C6C74.png"),
   );
@@ -45,7 +52,7 @@ export default function Volunteer({ position, sendSubmit, communityAggregate }) 
     setEraserState(holdState);
   };
 
-  const handleSensedChange = (option, number, colorState, eraserState) => {
+  const handleSensedChange = (option, number, colorState) => {
     if (option == "one") {
       setOneSensors((prevSensors) => ({
         ...prevSensors,
@@ -78,12 +85,10 @@ export default function Volunteer({ position, sendSubmit, communityAggregate }) 
     }
   }, [oneSensors, fiveSensors]);
 
-  const reconcile = () => {
+  const reconcile = useCallback(() => {
     setFlipState(true);
 
-    setTimeout(() => {
-      setConfedState(true);
-    }, 1000);
+    schedule(1000, () => setConfedState(true));
 
     if (
       majority === 5 &&
@@ -94,21 +99,20 @@ export default function Volunteer({ position, sendSubmit, communityAggregate }) 
       // console.log(`Lost: User ${majority}, Confed1 ${confed[0]}, Confed2 ${confed[1]}, Confed3 ${confed[2]}`)
       setPayoutState(false);
       setPayoutText(`try again \nnext time`);
-      setPayoutPosition([position[0] - 12, 0, position[2] + 45]);
+      setPayoutPosition([posX - 12, 0, posZ + 45]);
       setReaction(":/");
     } else {
       // console.log(`Pay Out: User ${majority}, Confed1 ${confed[0]}, Confed2 ${confed[1]}, Confed3 ${confed[2]}`)
       setPayoutText(`win`);
-      setPayoutPosition([position[0], 0, position[2] + 45]);
+      setPayoutPosition([posX, 0, posZ + 45]);
       setReaction(":]");
 
-      setTimeout(() => {
+      schedule(3500, () => {
         setPayoutState(true);
         setPathState(true);
-      }, 3500);
+      });
     }
-
-  };
+  }, [majority, confed, posX, posZ, schedule]);
 
   const renderCoins = (amount, position) => {
     const coinCount = typeof amount === "number" ? amount : 0;
@@ -129,7 +133,7 @@ export default function Volunteer({ position, sendSubmit, communityAggregate }) 
 
       setSubmitRefractory(true);
     }
-  }, [confed]);
+  }, [confed, reconcile]);
 
   return (
     <>

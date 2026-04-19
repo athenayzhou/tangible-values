@@ -1,9 +1,16 @@
+function whole(n) {
+  const x = Number(n);
+  return Number.isFinite(x) ? Math.round(x) : 0;
+}
+
 export default function Hud({ balance, values }) {
-  const trust = Number(values?.trust ?? 0).toFixed(1);
-  const altruism = Number(values?.altruism ?? 0).toFixed(1);
-  const deceit = Number(values?.deceit ?? 0).toFixed(1);
-  const greed = Number(values?.greed ?? 0).toFixed(1);
-  const standing = Number(values?.standing ?? 0).toFixed(1);
+  const trust = whole(values?.trust);
+  const altruism = whole(values?.altruism);
+  const deceit = whole(values?.deceit);
+  const greed = whole(values?.greed);
+  const standing = whole(values?.standing);
+
+  const showDevReset = import.meta.env.DEV;
 
   return (
     <div
@@ -31,6 +38,34 @@ export default function Hud({ balance, values }) {
       <div>Greed: {greed}</div>
 
       <div style={{ marginTop: 6 }}>Standing: {standing}</div>
+
+      {showDevReset && (
+        <div style={{ marginTop: 10, pointerEvents: "auto" }}>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                window.localStorage.removeItem("tv_session_id");
+                window.localStorage.removeItem("tv_dictator_locked_session");
+              } catch {
+                // ignore
+              }
+              window.location.reload();
+            }}
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              fontWeight: 700,
+              borderRadius: 6,
+              border: "1px solid rgba(0,0,0,0.2)",
+              background: "rgba(255,255,255,0.9)",
+              cursor: "pointer",
+            }}
+          >
+            DEV: new session
+          </button>
+        </div>
+      )}
     </div>
   );
 }

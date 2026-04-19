@@ -1,0 +1,1 @@
+import{r}from"./react-vendor-c4d6940e.js";function i(){const e=r.useRef([]),t=r.useCallback(()=>{for(const c of e.current)clearTimeout(c);e.current=[]},[]),u=r.useCallback((c,n)=>{const s=window.setTimeout(()=>{e.current=e.current.filter(o=>o!==s),n()},c);return e.current.push(s),s},[]);return r.useEffect(()=>t,[t]),{schedule:u,clearAll:t}}export{i as u};
