@@ -234,7 +234,12 @@ function CoinMult({ position, setDragState, floorPlane, sensedCoinState }) {
   );
 }
 
-export default function Trust({ position, sendSubmit, communityAggregate }) {
+export default function Trust({
+  position,
+  sendSubmit,
+  communityAggregate,
+  confederateMemory = null,
+}) {
   const floorPlane = new Plane(new Vector3(0, 1, 0), 0);
   const posX = position[0];
   const posZ = position[2];
@@ -450,6 +455,7 @@ export default function Trust({ position, sendSubmit, communityAggregate }) {
         errorPosition={[position[0] + 30, 1, position[2] - 5]}
         sendSubmit={sendSubmit}
         communityAggregate={communityAggregate}
+        confederateMemory={confederateMemory}
       />
 
       <SensorMult

@@ -18,6 +18,7 @@ export default function Submit({
   refractory,
   sendSubmit,
   communityAggregate,
+  confederateMemory = null,
 }) {
   const intersectionTimeoutRef = useRef(null);
   const [errorState, setErrorState] = useState(false);
@@ -37,7 +38,11 @@ export default function Submit({
         break;
       }
       case "volunteer": {
-        const round = sampleVolunteerChoice(communityAggregate, 3);
+        const round = sampleVolunteerChoice(
+          communityAggregate,
+          3,
+          confederateMemory,
+        );
         const confedChoices = round.choices;
         onSubmit?.(confedChoices);
         sendSubmit("volunteer", {
@@ -47,7 +52,10 @@ export default function Submit({
         break;
       }
       case "exchange": {
-        const confedChoice = sampleExchangeChoice(communityAggregate);
+        const confedChoice = sampleExchangeChoice(
+          communityAggregate,
+          confederateMemory,
+        );
         onSubmit?.(confedChoice);
         sendSubmit("exchange", {
           decisionValue,
@@ -57,7 +65,11 @@ export default function Submit({
       }
       case "trust": {
         const sent = Number(decisionValue) || 0;
-        const returned = sampleTrustReturn(sent, communityAggregate);
+        const returned = sampleTrustReturn(
+          sent,
+          communityAggregate,
+          confederateMemory,
+        );
         onSubmit?.(returned);
         sendSubmit("trust", { decisionValue, outcomeMeta: { returned } });
         break;

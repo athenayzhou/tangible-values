@@ -16,6 +16,7 @@ export default function Volunteer({
   position,
   sendSubmit,
   communityAggregate,
+  confederateMemory = null,
 }) {
   const { schedule } = useTimedStages();
   const posX = position[0];
@@ -280,6 +281,7 @@ export default function Volunteer({
         errorPosition={[position[0] + 30, 1, position[2] - 5]}
         sendSubmit={sendSubmit}
         communityAggregate={communityAggregate}
+        confederateMemory={confederateMemory}
       />
 
       <Path

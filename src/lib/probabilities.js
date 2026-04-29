@@ -1,3 +1,9 @@
+import {
+  decideExchange,
+  decideVolunteer,
+  decideTrust,
+} from "./confederate";
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -229,7 +235,34 @@ function sampleRoundMood(confidence) {
   return (Math.random() * 2 - 1) * maxAmp;
 }
 
-export function sampleVolunteerChoice(aggregate, count = 3) {
+export function sampleVolunteerChoice(
+  aggregate,
+  count = 3,
+  confederateMemory = null,
+) {
+  if (confederateMemory) {
+    const { pOne } = decideVolunteer(confederateMemory, aggregate);
+    const base = getVolunteerProb(aggregate);
+    const mood = sampleRoundMood(base.confidence);
+    const pOneRound = clamp(pOne + mood * 0.35, 0.05, 0.95);
+    const choices = [];
+    for (let i = 0; i < count; i += 1) {
+      choices.push(Math.random() < pOneRound ? 1 : 5);
+    }
+    return {
+      choices,
+      diagnostics: {
+        pOneBase: base.pOne,
+        pOneRational: pOne,
+        pOneRound,
+        mood,
+        confidence: base.confidence,
+        effectiveN: base.effectiveN,
+        source: "confederate_rational",
+      },
+    };
+  }
+
   const base = getVolunteerProb(aggregate);
   const mood = sampleRoundMood(base.confidence);
   const pOneRound = clamp(base.pOne + mood, 0.05, 0.95);
@@ -252,12 +285,20 @@ export function sampleVolunteerChoice(aggregate, count = 3) {
   };
 }
 
-export function sampleExchangeChoice(aggregate) {
+export function sampleExchangeChoice(aggregate, confederateMemory = null) {
+  if (confederateMemory) {
+    const { pExchange } = decideExchange(confederateMemory, aggregate);
+    return Math.random() < pExchange;
+  }
   const base = getExchangeProb(aggregate);
   return Math.random() < base.pHonest;
 }
 
-export function sampleTrustReturn(sent, aggregate) {
+export function sampleTrustReturn(
+  sent,
+  aggregate,
+  confederateMemory = null,
+) {
   const amount = Math.max(0, Number(sent) || 0);
   const { returnFactor, confidence } = getTrustBaseline(aggregate);
 
@@ -286,7 +327,14 @@ export function sampleTrustReturn(sent, aggregate) {
   }
 
   const uncertaintyBoost = 1 + (1 - confidence) * 0.5;
-  const expected = amount * returnFactor * binMultiplier;
+  let expected = amount * returnFactor * binMultiplier;
+  if (confederateMemory) {
+    expected *= decideTrust(
+      confederateMemory,
+      aggregate,
+      amount,
+    );
+  }
   const jitter =
     (Math.random() - 0.5) * amount * jitterScale * uncertaintyBoost;
   const raw = Math.round(expected + jitter);

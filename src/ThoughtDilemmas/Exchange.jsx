@@ -12,7 +12,12 @@ import Wall from "../Components/Interaction/Wall";
 import Path from "../Components/World/Path";
 import { useTimedStages } from "../hooks/useTimedStages";
 
-export default function Exchange({ position, sendSubmit, communityAggregate }) {
+export default function Exchange({
+  position,
+  sendSubmit,
+  communityAggregate,
+  confederateMemory = null,
+}) {
   const { schedule } = useTimedStages();
   const { nodes: appleNodes } = useGLTF(assetUrl("models/apple.glb"));
   const { nodes: orangeNodes } = useGLTF(assetUrl("models/orange.glb"));
@@ -239,6 +244,7 @@ export default function Exchange({ position, sendSubmit, communityAggregate }) {
         errorPosition={[position[0] - 53, 1, position[2] + 100]}
         sendSubmit={sendSubmit}
         communityAggregate={communityAggregate}
+        confederateMemory={confederateMemory}
       />
 
       <Sensor

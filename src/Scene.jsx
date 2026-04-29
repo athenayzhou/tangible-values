@@ -31,6 +31,13 @@ import { useSubmission } from "./hooks/useSubmission";
 import { useGold } from "./hooks/useGold";
 import { useValues } from "./hooks/useValues";
 import { useSettle } from "./hooks/useSettle";
+import {
+  initialConfederate,
+  updateState,
+  normalizeState,
+} from "./lib/confederate";
+
+const THOUGHT_IDS = ["dictator", "volunteer", "exchange", "trust"];
 
 const proximityToThoughts = [true, true, true, true];
 
@@ -71,6 +78,9 @@ function Scene() {
   const [dilemmaMountNonce, setDilemmaMountNonce] = useState(0);
   const [stakePortalNotice, setStakePortalNotice] = useState(null);
   const [recap, setRecap] = useState(null);
+  const [confederate, setConfederate] = useState(() =>
+    initialConfederate(),
+  );
 
   const playerRef = useRef(null);
   const exitUnlockTimeRef = useRef(0);
@@ -82,6 +92,7 @@ function Scene() {
   activeThoughtIdRef.current = activeThoughtId;
   const spatialResumeRef = useRef(null);
   const lastHydratedSessionRef = useRef(null);
+  const confederateSessionRef = useRef(null);
 
   const { settle, recapBufferRef } = useSettle({
     settleThought,
@@ -102,6 +113,34 @@ function Scene() {
   useEffect(() => {
     void initSession();
   }, [initSession]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+    const sessionChanged = confederateSessionRef.current !== sessionId;
+    confederateSessionRef.current = sessionId;
+
+    setConfederate((prev) => {
+      if (sessionChanged) {
+        const base = initialConfederate();
+        for (const tid of THOUGHT_IDS) {
+          const agg = aggregate[tid];
+          if (agg != null && typeof agg === "object") {
+            base[tid] = updateState(base[tid], tid, agg);
+          }
+        }
+        return base;
+      }
+      const next = { ...prev };
+      for (const tid of THOUGHT_IDS) {
+        const agg = aggregate[tid];
+        if (agg == null || typeof agg !== "object") continue;
+        next[tid] = updateState(prev[tid], tid, agg);
+      }
+      return next;
+    });
+  }, [sessionId, aggregate]);
 
   const resumePortal = useCallback((thoughtId, instanceId, { refreshAgg = true } = {}) => {
     if (!PORTAL_RESUME.has(thoughtId) || !instanceId) return;
@@ -452,6 +491,11 @@ function Scene() {
                           position: THOUGHT_CENTER,
                           sendSubmit: handleSubmit,
                           aggregate: aggregate[activeThoughtId],
+                          communityAggregate:
+                            aggregate[activeThoughtId] ?? null,
+                          confederateMemory:
+                            confederate[activeThoughtId] ??
+                            normalizeState(null),
                         },
                       )}
                     </Thought>
