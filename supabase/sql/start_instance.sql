@@ -1,12 +1,12 @@
--- start_instance + record_action_cost
--- Matches src/lib/supabaseClient.js:
---   start_instance(p_session_id, p_thought_id, p_stake)
---   record_action_cost(p_session_id, p_instance_id, p_cost, p_reason)
+-- start_instance
+-- Client: src/lib/supabaseClient.js — start_instance(sessionId, thoughtId); stake is server-derived.
 --
 -- Requires:
 --   • public.get_session_gold(uuid)
---   • public.gold_ledger(session_id, amount, entry_type NOT NULL, …) — literals 'stake' / 'cost'
+--   • public.gold_ledger(session_id, amount, entry_type NOT NULL, …) — literal 'stake' (and 'payout' in settle_decision)
 --     must match your enum or check constraint if applicable.
+--     If inserts fail with gold_ledger_entry_type_check (23514), run
+--     supabase/sql/alter_gold_ledger_entry_type_check.sql
 --   • public.thought_instances(id uuid PK, session_id uuid, thought_id text,
 --       stake_amount numeric NOT NULL, settled_at timestamptz NULL)
 --     with default gen_random_uuid() on id
@@ -16,6 +16,7 @@
 
 DROP FUNCTION IF EXISTS public.start_instance(uuid, text, integer);
 DROP FUNCTION IF EXISTS public.start_instance(uuid, text, numeric);
+DROP FUNCTION IF EXISTS public.start_instance(uuid, text);
 
 DROP FUNCTION IF EXISTS public.record_action_cost(uuid, uuid, integer, text);
 DROP FUNCTION IF EXISTS public.record_action_cost(uuid, uuid, numeric, text);
@@ -24,12 +25,11 @@ DROP FUNCTION IF EXISTS public.record_action_cost(uuid, uuid, bigint, text);
 -- -----------------------------------------------------------------------------
 -- start_instance
 -- One open instance per (session_id, thought_id). Retrying returns the same row
--- without charging stake again. New instance: optional stake debit, then INSERT.
+-- without charging stake again. New instance: canonical stake debit, then INSERT.
 -- -----------------------------------------------------------------------------
 CREATE FUNCTION public.start_instance(
   p_session_id uuid,
-  p_thought_id text,
-  p_stake numeric
+  p_thought_id text
 )
 RETURNS TABLE (
   instance_id uuid,
@@ -40,7 +40,14 @@ VOLATILE
 AS $$
 DECLARE
   tid text := nullif(trim(p_thought_id), '');
-  stake int := greatest(0, trunc(coalesce(p_stake, 0))::int);
+  -- Canonical stakes per thought_id (must match src/lib/gold.js stakeForThought).
+  stake int := CASE tid
+    WHEN 'dictator' THEN 0
+    WHEN 'volunteer' THEN 0
+    WHEN 'exchange' THEN 3
+    WHEN 'trust' THEN 10
+    ELSE 0
+  END;
   existing uuid;
   bal int;
   new_id uuid;
@@ -88,69 +95,10 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.start_instance(uuid, text, numeric) IS
-  'Open a thought instance; debits stake on gold_ledger when p_stake > 0.';
+COMMENT ON FUNCTION public.start_instance(uuid, text) IS
+  'Open a thought instance; debits canonical stake from gold_ledger by thought_id.';
 
--- -----------------------------------------------------------------------------
--- record_action_cost
--- Debits gold for an in-flight instance (settled_at IS NULL).
--- -----------------------------------------------------------------------------
-CREATE FUNCTION public.record_action_cost(
-  p_session_id uuid,
-  p_instance_id uuid,
-  p_cost numeric,
-  p_reason text
-)
-RETURNS TABLE (
-  balance integer
-)
-LANGUAGE plpgsql
-VOLATILE
-AS $$
-DECLARE
-  cost int := greatest(0, trunc(coalesce(p_cost, 0))::int);
-  bal int;
-BEGIN
-  -- p_reason: use for a meta/details column later; entry_type uses fixed 'cost' for enums.
-  IF cost = 0 THEN
-    bal := public.get_session_gold(p_session_id);
-    RETURN QUERY SELECT bal;
-    RETURN;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.thought_instances AS ti
-    WHERE ti.id = p_instance_id
-      AND ti.session_id = p_session_id
-      AND ti.settled_at IS NULL
-  ) THEN
-    RAISE EXCEPTION
-      'thought instance not found, wrong session, or already settled (id=%)',
-      p_instance_id
-      USING ERRCODE = 'P0001';
-  END IF;
-
-  bal := public.get_session_gold(p_session_id);
-  IF bal < cost THEN
-    RAISE EXCEPTION 'insufficient gold for action cost (have %, need %)', bal, cost
-      USING ERRCODE = 'P0001';
-  END IF;
-
-  INSERT INTO public.gold_ledger (session_id, amount, entry_type)
-  VALUES (p_session_id, -cost, 'cost');
-
-  bal := public.get_session_gold(p_session_id);
-  RETURN QUERY SELECT bal;
-END;
-$$;
-
-COMMENT ON FUNCTION public.record_action_cost(uuid, uuid, numeric, text) IS
-  'Debit gold during an open thought instance; validates instance belongs to session.';
-
-GRANT EXECUTE ON FUNCTION public.start_instance(uuid, text, numeric)
-  TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.record_action_cost(uuid, uuid, numeric, text)
+GRANT EXECUTE ON FUNCTION public.start_instance(uuid, text)
   TO anon, authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';

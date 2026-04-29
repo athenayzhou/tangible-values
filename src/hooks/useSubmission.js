@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { insertDecision, buildDecisionPayload } from "../lib/supabaseClient";
-import { classifyOutcome } from "../lib/values";
+import { buildDecisionPayload } from "../lib/supabaseClient";
 import { isDictatorLockedForSession } from "../lib/dictatorLock";
 
 const initialSubmissions = {
@@ -44,7 +43,6 @@ export function useSubmission() {
   submissionsRef.current = submissions;
   const retryCacheRef = useRef({});
 
-  /** Call when a new thought_instance begins (portal enter). One submit allowed per instanceId. */
   const hydrateDictatorLock = useCallback((sessionId) => {
     if (!sessionId || !isDictatorLockedForSession(sessionId)) return;
     setSubmissions((prev) => ({
@@ -58,7 +56,7 @@ export function useSubmission() {
     }));
   }, []);
 
-  const beginSubmissionForInstance = useCallback((thoughtId, instanceId) => {
+  const beginSubmission = useCallback((thoughtId, instanceId) => {
     if (!thoughtId || thoughtId === "exit") return;
     const base = initialSubmissions[thoughtId] ?? initialSubmissions.dictator;
     setSubmissions((prev) => ({
@@ -81,12 +79,10 @@ export function useSubmission() {
         typeof submitState === "object" && submitState !== null
           ? submitState.decisionValue
           : submitState;
-
       const outcomeMeta =
         typeof submitState === "object" && submitState !== null
           ? (submitState.outcomeMeta ?? null)
           : null;
-
       const previousThoughtState =
         submissionsRef.current[thoughtId] ?? initialSubmissions[thoughtId];
 
@@ -97,7 +93,6 @@ export function useSubmission() {
       ) {
         throw new Error("Dictator is already completed for this session.");
       }
-
       if (
         thoughtId !== "dictator" &&
         (options.instanceId == null || options.instanceId === "")
@@ -106,7 +101,6 @@ export function useSubmission() {
           "No active instance for this thought — re-enter the portal.",
         );
       }
-
       if (
         thoughtId !== "dictator" &&
         previousThoughtState.instanceId != null &&
@@ -123,14 +117,6 @@ export function useSubmission() {
         decisionValue,
         outcomeMeta,
       );
-      const classified = classifyOutcome(thoughtId, decisionValue, outcomeMeta);
-      const valueDeltas = classified?.valueDeltas ?? {
-        trust: 0,
-        altruism: 0,
-        deceit: 0,
-        greed: 0,
-      };
-      const valueLabel = classified?.label ?? "neutral";
 
       retryCacheRef.current[thoughtId] = {
         thoughtId,
@@ -150,38 +136,19 @@ export function useSubmission() {
       }));
 
       try {
-        await insertDecision(thoughtId, payload, {
-          sessionId: options.sessionId,
-          instanceId: options.instanceId,
-          valueDeltas,
-          outcomeLabel: valueLabel,
-        });
-
-        setSubmissions((prev) => ({
-          ...prev,
-          [thoughtId]: {
-            ...prev[thoughtId],
-            submitted: true,
-            status: "persisted",
-            error: null,
-          },
-        }));
-
         if (typeof options.onPersisted === "function") {
           await options.onPersisted({
             thoughtId,
             decisionValue,
             outcomeMeta,
             payload,
-            valueDeltas,
-            outcomeLabel: valueLabel,
           });
         }
-
         setSubmissions((prev) => ({
           ...prev,
           [thoughtId]: {
             ...prev[thoughtId],
+            submitted: true,
             status: "settled",
             error: null,
           },
@@ -214,7 +181,7 @@ export function useSubmission() {
     submissions,
     storeSubmissions,
     retrySubmission,
-    beginSubmissionForInstance,
+    beginSubmission,
     hydrateDictatorLock,
   };
 }

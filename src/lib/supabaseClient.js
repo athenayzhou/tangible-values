@@ -5,12 +5,6 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = url && key ? createClient(url, key) : null;
 
-function truncDelta(vd, key) {
-  if (vd == null || typeof vd !== "object") return 0;
-  const x = Number(vd[key]);
-  return Number.isFinite(x) ? Math.trunc(x) : 0;
-}
-
 export async function createSession(seedGold = 0) {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc("create_session", {
@@ -20,32 +14,54 @@ export async function createSession(seedGold = 0) {
   return Array.isArray(data) ? data[0] : data;
 }
 
-export async function startInstance(sessionId, thoughtId, stake) {
+export async function startInstance(sessionId, thoughtId) {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc("start_instance", {
     p_session_id: sessionId,
     p_thought_id: thoughtId,
-    p_stake: stake,
   });
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
 }
 
-export async function recordActionCost(
-  sessionId,
-  instanceId,
-  cost,
-  reason = "action",
-) {
-  if (!supabase) return null;
-  const { data, error } = await supabase.rpc("record_action_cost", {
+/** Normalizes open_instances (SETOF) RPC: array, wrapped array, or single row object. */
+function normalizeOpenInstanceRows(data) {
+  if (data == null) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === "string") {
+    try {
+      return normalizeOpenInstanceRows(JSON.parse(data));
+    } catch {
+      return [];
+    }
+  }
+  if (typeof data === "object") {
+    const keys = Object.keys(data);
+    if (keys.length === 1) {
+      const inner = data[keys[0]];
+      if (Array.isArray(inner)) return inner;
+    }
+    for (const k of keys) {
+      const inner = data[k];
+      if (Array.isArray(inner) && inner.length > 0) {
+        const first = inner[0];
+        if (first && typeof first === "object") return inner;
+      }
+    }
+    if (data.thought_id != null || data.instance_id != null) {
+      return [data];
+    }
+  }
+  return [];
+}
+
+export async function fetchInstance(sessionId) {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc("open_instances", {
     p_session_id: sessionId,
-    p_instance_id: instanceId,
-    p_cost: cost,
-    p_reason: reason,
   });
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return normalizeOpenInstanceRows(data);
 }
 
 export async function settleDecision({
@@ -53,25 +69,14 @@ export async function settleDecision({
   instanceId,
   thoughtId,
   payload,
-  payout,
-  valueDeltas = { trust: 0, altruism: 0, deceit: 0, greed: 0 },
   meta = {},
 }) {
   if (!supabase) return null;
-  const vd = valueDeltas;
-  const p_value_deltas = {
-    trust: truncDelta(vd, "trust"),
-    altruism: truncDelta(vd, "altruism"),
-    deceit: truncDelta(vd, "deceit"),
-    greed: truncDelta(vd, "greed"),
-  };
   const { data, error } = await supabase.rpc("settle_decision", {
     p_session_id: sessionId,
     p_instance_id: instanceId,
     p_thought_id: thoughtId,
     p_payload: payload,
-    p_payout: payout,
-    p_value_deltas,
     p_meta: meta,
   });
   if (error) throw error;
@@ -94,33 +99,6 @@ export async function fetchValues(sessionId) {
   });
   if (error) throw error;
   return unwrapRpc(data);
-}
-
-export async function insertDecision(thoughtId, payload, options = {}) {
-  if (!supabase) return null;
-
-  const vd = options.valueDeltas;
-  const row = {
-    thought_id: thoughtId,
-    payload,
-    session_id: options.sessionId ?? null,
-    instance_id: options.instanceId ?? null,
-    value_deltas: {
-      trust: truncDelta(vd, "trust"),
-      altruism: truncDelta(vd, "altruism"),
-      deceit: truncDelta(vd, "deceit"),
-      greed: truncDelta(vd, "greed"),
-    },
-    outcome_label: options.outcomeLabel ?? "neutral",
-  };
-
-  const { data, error } = await supabase
-    .from("decision_events")
-    .insert(row)
-    .select("id");
-  if (error) throw error;
-  const first = Array.isArray(data) ? data[0] : data;
-  return first?.id ?? null;
 }
 
 export function unwrapRpc(data) {

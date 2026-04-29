@@ -3,7 +3,7 @@
 -- PostgREST requires the request body keys to match parameter names.
 --
 -- Aggregates from public.decision_events (thought_id + payload) so it stays in sync
--- with insertDecision / buildDecisionPayload in the app.
+-- with settle_decision + buildDecisionPayload in the app.
 -- If your column is still named "thought", change WHERE clauses accordingly.
 --
 -- DROP is required when renaming the argument on an existing (text) function.

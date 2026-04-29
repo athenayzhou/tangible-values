@@ -24,8 +24,6 @@ export const EXCHANGE_PROMPT = `
                   without knowing what the other person will do. 
                   you have an apple but prefer an orange, 
                   while the other person has an orange and prefers an apple. 
-                  both of you prefer obtaining both fruit to just one 
-                  and prefer either fruit to none at all. 
 
                   knowing there’s a chance of obtaining both, one, or no fruit, 
                   do you keep your fruit, deceiving the other person, or exchange it?

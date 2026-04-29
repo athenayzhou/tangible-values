@@ -23,7 +23,8 @@ COMMENT ON FUNCTION public.get_session_gold(uuid) IS
 -- get_session_values
 -- Returns one HUD row. This version sums JSON value_deltas on decision_events
 -- (matches the app insert). *_ema columns mirror *_raw until you add a real EMA
--- source (e.g. a snapshot table); standing is 0 here.
+-- source (e.g. a snapshot table); standing is derived as
+-- clamp(trust + altruism - deceit - greed, -200, 200).
 -- If you later create public.run_stats_snapshot, replace the body to SELECT from it.
 -- -----------------------------------------------------------------------------
 CREATE FUNCTION public.get_session_values(p_session_id uuid)
@@ -50,7 +51,16 @@ AS $$
     coalesce(r.altruism_raw, 0)::double precision AS altruism,
     coalesce(r.deceit_raw, 0)::double precision AS deceit,
     coalesce(r.greed_raw, 0)::double precision AS greed,
-    0::double precision AS standing,
+    greatest(
+      -200::double precision,
+      least(
+        200::double precision,
+        coalesce(r.trust_raw, 0)
+        + coalesce(r.altruism_raw, 0)
+        - coalesce(r.deceit_raw, 0)
+        - coalesce(r.greed_raw, 0)
+      )
+    )::double precision AS standing,
     coalesce(r.trust_raw, 0)::double precision AS trust_raw,
     coalesce(r.altruism_raw, 0)::double precision AS altruism_raw,
     coalesce(r.deceit_raw, 0)::double precision AS deceit_raw,

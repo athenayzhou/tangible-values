@@ -6,7 +6,7 @@
 --   • public.run_sessions: id uuid PK, seed_gold NOT NULL (default 0; dictator “kept” coins come from first settle payout)
 --   • public.gold_ledger(session_id, amount, entry_type NOT NULL, …)
 --     Scripts use entry_type literals: seed (create_session), stake (start_instance),
---     cost (record_action_cost), payout (settle_decision). Edit all four if your enum differs.
+--     payout (settle_decision). Edit literals if your enum differs.
 --   • public.get_session_gold(uuid) — optional; script inlines the same sum for the return row
 --
 -- If you cannot rename args on an existing function, DROP the old signature first (42P13).
