@@ -4,6 +4,7 @@ import Text from "./Components/Text/Text";
 import { Float } from "@react-three/drei";
 import { formatAggregate } from "./lib/aggregateDisplay";
 
+/** Community text near portals reflects **climate** (aggregate). Confederate **weather** is in-portal state from memory — see `lib/confederate.js`. */
 export default function Portal({
   id,
   position,

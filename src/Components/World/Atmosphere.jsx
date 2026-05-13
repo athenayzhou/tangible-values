@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 
+/** Base-world visual mood (atmosphere): standing and session traits — not crowding climate or portaled weather (see confederate.js). */
 export default function Atmosphere({
   trust = 0,
   altruism = 0,

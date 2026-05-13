@@ -235,16 +235,26 @@ function sampleRoundMood(confidence) {
   return (Math.random() * 2 - 1) * maxAmp;
 }
 
+/** Small per-round jitter for confederate probs when using memory only (Model B; no crowd confidence). */
+function sampleMemoryPathMood() {
+  const maxAmp = 0.12;
+  return (Math.random() * 2 - 1) * maxAmp;
+}
+
+/** Baseline return multiplier when trust uses confederate memory only (no aggregate at decision time). */
+const TRUST_MEMORY_RETURN_FACTOR = 1.0;
+/** Mild extra jitter when trait-only trust path (replaces crowd-based uncertainty). */
+const TRUST_MEMORY_UNCERTAINTY_BOOST = 1.15;
+
 export function sampleVolunteerChoice(
   aggregate,
   count = 3,
   confederateMemory = null,
 ) {
   if (confederateMemory) {
-    const { pOne } = decideVolunteer(confederateMemory, aggregate);
-    const base = getVolunteerProb(aggregate);
-    const mood = sampleRoundMood(base.confidence);
-    const pOneRound = clamp(pOne + mood * 0.35, 0.05, 0.95);
+    const { pOne, pMutualBenefit } = decideVolunteer(confederateMemory);
+    const mood = sampleMemoryPathMood();
+    const pOneRound = clamp(pOne + mood, 0.05, 0.95);
     const choices = [];
     for (let i = 0; i < count; i += 1) {
       choices.push(Math.random() < pOneRound ? 1 : 5);
@@ -252,13 +262,11 @@ export function sampleVolunteerChoice(
     return {
       choices,
       diagnostics: {
-        pOneBase: base.pOne,
         pOneRational: pOne,
+        pMutualBenefit,
         pOneRound,
         mood,
-        confidence: base.confidence,
-        effectiveN: base.effectiveN,
-        source: "confederate_rational",
+        source: "confederate_memory_only",
       },
     };
   }
@@ -287,7 +295,7 @@ export function sampleVolunteerChoice(
 
 export function sampleExchangeChoice(aggregate, confederateMemory = null) {
   if (confederateMemory) {
-    const { pExchange } = decideExchange(confederateMemory, aggregate);
+    const { pExchange } = decideExchange(confederateMemory);
     return Math.random() < pExchange;
   }
   const base = getExchangeProb(aggregate);
@@ -300,7 +308,6 @@ export function sampleTrustReturn(
   confederateMemory = null,
 ) {
   const amount = Math.max(0, Number(sent) || 0);
-  const { returnFactor, confidence } = getTrustBaseline(aggregate);
 
   const lowFactor =
     toNumber(aggregate?.return_factor_low) ??
@@ -314,6 +321,17 @@ export function sampleTrustReturn(
 
   let binMultiplier = 1.0;
   let jitterScale = 0.25;
+  let returnFactor = 1.0;
+  let uncertaintyBoost = 1.0;
+
+  if (confederateMemory) {
+    returnFactor = TRUST_MEMORY_RETURN_FACTOR;
+    uncertaintyBoost = TRUST_MEMORY_UNCERTAINTY_BOOST;
+  } else {
+    const baseline = getTrustBaseline(aggregate);
+    returnFactor = baseline.returnFactor;
+    uncertaintyBoost = 1 + (1 - baseline.confidence) * 0.5;
+  }
 
   if (amount <= 3) {
     binMultiplier = lowFactor != null ? clamp(lowFactor, 0.15, 2.5) : 0.9;
@@ -326,14 +344,9 @@ export function sampleTrustReturn(
     jitterScale = 0.4;
   }
 
-  const uncertaintyBoost = 1 + (1 - confidence) * 0.5;
   let expected = amount * returnFactor * binMultiplier;
   if (confederateMemory) {
-    expected *= decideTrust(
-      confederateMemory,
-      aggregate,
-      amount,
-    );
+    expected *= decideTrust(confederateMemory, amount);
   }
   const jitter =
     (Math.random() - 0.5) * amount * jitterScale * uncertaintyBoost;
